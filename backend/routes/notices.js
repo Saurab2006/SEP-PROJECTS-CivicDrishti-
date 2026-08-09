@@ -11,6 +11,17 @@ function visibleFilter(user) {
   return { active: true, audience: { $in: ['all', user.role] }, $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] };
 }
 
+// Expiry is anchored to the calendar day, not a rolling N*24h timer from the
+// exact creation time. A notice created any time "today" (even at 12:01am)
+// still expires at the end of that same day for a 1-day notice, and at the
+// end of the (N-1)th following day for an N-day notice.
+function expiresAtEndOfDay(days) {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  d.setDate(d.getDate() + (Math.max(1, Number(days) || 1) - 1));
+  return d;
+}
+
 
 router.get('/public-active', async (req, res) => {
   try {
@@ -40,7 +51,7 @@ router.post('/', protect, requireRole('admin'), async (req, res) => {
     const audience = ['all', 'admin', 'analyst', 'researcher'].includes(req.body?.audience) ? req.body.audience : 'all';
     const expiresInDays = Number(req.body?.expiresInDays || 7);
     if (!title || !message) return res.status(422).json({ error: 'Title and message are required' });
-    const notice = await Notice.create({ title, message, priority, audience, createdBy: req.user._id, expiresAt: new Date(Date.now() + Math.max(1, expiresInDays) * 24 * 60 * 60 * 1000) });
+    const notice = await Notice.create({ title, message, priority, audience, createdBy: req.user._id, expiresAt: expiresAtEndOfDay(expiresInDays) });
     const filter = audience === 'all' ? {} : { role: audience };
     const users = await User.find(filter).select('_id email name');
     if (users.length) {
@@ -60,4 +71,3 @@ router.patch('/:id', protect, requireRole('admin'), async (req, res) => {
 });
 
 module.exports = router;
-

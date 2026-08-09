@@ -1,7 +1,6 @@
 ﻿const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { fallbackSuggestAuthoritiesForArea } = require('./utils/authorityAI');
-const { embedText, bestSemanticMatch, classifyFreeText, looksNepali } = require('./utils/civicAI');
 const { sendEmailQuietly } = require('./utils/email');
 const { code, hashCode, expires, validHash, welcomeEmail, otpEmail, resetEmail, accountDecisionEmail, budgetDecisionEmail } = require('./utils/authEmails');
 
@@ -49,12 +48,12 @@ const SECTORS = ['Roads & Transport', 'Health', 'Education', 'Drinking Water', '
 const DEPTS = ['Municipal Executive', 'Department of Roads', 'Ministry of Health', 'Ministry of Education', 'Water Supply Dept', 'Agriculture Dept', 'Energy Dept', 'Urban Development Dept'];
 const STATUSES = ['planned', 'ongoing', 'completed', 'delayed'];
 const DOCS_SPEC = [
-  { title: 'Kathmandu Metropolitan City — Annual Budget', docType: 'budget', fiscalYear: '2081/82', district: 'Kathmandu', municipality: 'Kathmandu Metro' },
-  { title: 'Pokhara Metropolitan City — Annual Budget', docType: 'budget', fiscalYear: '2080/81', district: 'Kaski', municipality: 'Pokhara Metro' },
-  { title: 'Office of Auditor General — Audit Report', docType: 'audit', fiscalYear: '2080/81', district: 'Chitwan', municipality: 'Bharatpur Metro' },
-  { title: 'Butwal Sub-Metro — Development Plan', docType: 'development-plan', fiscalYear: '2081/82', district: 'Rupandehi', municipality: 'Butwal Sub-Metro' },
-  { title: 'Dept of Roads — Procurement Notice', docType: 'procurement', fiscalYear: '2081/82', district: 'Sunsari', municipality: 'Dharan Sub-Metro' },
-  { title: 'Dhangadhi Sub-Metro — Annual Report', docType: 'annual-report', fiscalYear: '2079/80', district: 'Kailali', municipality: 'Dhangadhi Sub-Metro' },
+  { title: 'Kathmandu Metropolitan City â€” Annual Budget', docType: 'budget', fiscalYear: '2081/82', district: 'Kathmandu', municipality: 'Kathmandu Metro' },
+  { title: 'Pokhara Metropolitan City â€” Annual Budget', docType: 'budget', fiscalYear: '2080/81', district: 'Kaski', municipality: 'Pokhara Metro' },
+  { title: 'Office of Auditor General â€” Audit Report', docType: 'audit', fiscalYear: '2080/81', district: 'Chitwan', municipality: 'Bharatpur Metro' },
+  { title: 'Butwal Sub-Metro â€” Development Plan', docType: 'development-plan', fiscalYear: '2081/82', district: 'Rupandehi', municipality: 'Butwal Sub-Metro' },
+  { title: 'Dept of Roads â€” Procurement Notice', docType: 'procurement', fiscalYear: '2081/82', district: 'Sunsari', municipality: 'Dharan Sub-Metro' },
+  { title: 'Dhangadhi Sub-Metro â€” Annual Report', docType: 'annual-report', fiscalYear: '2079/80', district: 'Kailali', municipality: 'Dhangadhi Sub-Metro' },
 ];
 const PROJ_NAMES = ['Ring Road Upgrade', 'Health Post Construction', 'Seti River Bridge', 'Water Supply Network', 'Kalika School Block', 'Solar Street Lights', 'Sanitary Landfill', 'Bus Park Hub', 'Flood Embankment', 'Data Centre', 'Agriculture Centre', 'Heritage Walkway'];
 const WARD_COUNT = 32; // Nepal's local units vary in ward count; used for demo seeding only
@@ -125,7 +124,7 @@ function pick(r, arr) { return arr[Math.floor(r() * arr.length)]; }
 
 // Lightweight rule-based "AI" estimator: takes the category's typical repair
 // window and adjusts it by how urgent the citizen marked the problem.
-// (Stands in for a model call — swap for a real completion if ever wired up.)
+// (Stands in for a model call â€” swap for a real completion if ever wired up.)
 function estimateDays(category, severity) {
   const spec = REPORT_CATEGORIES.find(c => c.value === category) || REPORT_CATEGORIES[REPORT_CATEGORIES.length - 1];
   const factor = { critical: 0.5, high: 0.75, medium: 1, low: 1.3 }[severity] ?? 1;
@@ -137,7 +136,7 @@ function addDays(days) { const d = new Date(); d.setDate(d.getDate() + Number(da
 function normalizeText(s) { return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean); }
 
 // Two reports are treated as "the same problem" when they share a category,
-// sit in the same district, and their location text overlaps meaningfully —
+// sit in the same district, and their location text overlaps meaningfully â€”
 // this is what lets many citizen reports of one broken tunnel collapse into
 // a single work item instead of flooding the queue with duplicates.
 function textOverlap(a, b) {
@@ -149,29 +148,16 @@ function textOverlap(a, b) {
   return shared / Math.min(wa.size, wb.size);
 }
 
-// Citizens can reopen a "completed" report within this many days if it
-// wasn't actually fixed.
-const REOPEN_WINDOW_DAYS = 7;
-
-function findDuplicateCandidate(category, location, newEmbedding) {
+function findDuplicateCandidate(category, location) {
   const cutoff = Date.now() - 21 * 24 * 60 * 60 * 1000; // look back 3 weeks
-  const candidates = reports.filter(r =>
+  return reports.find(r =>
     !r.duplicateOf &&
     r.category === category &&
     !['completed', 'rejected'].includes(r.status) &&
     (r.location.district || '').toLowerCase() === (location.district || '').toLowerCase() &&
-    new Date(r.createdAt).getTime() > cutoff
-  );
-
-  // Prefer a semantic match (Gemini embeddings on address+description) when
-  // both sides have one computed; fall back to word-overlap on the address
-  // for any candidate filed before this feature (or while Gemini was down).
-  const withEmbedding = candidates.filter(r => Array.isArray(r.embedding) && r.embedding.length);
-  const semanticMatch = newEmbedding ? bestSemanticMatch(newEmbedding, withEmbedding) : null;
-  if (semanticMatch) return semanticMatch;
-
-  const remaining = candidates.filter(r => !withEmbedding.includes(r));
-  return remaining.find(r => textOverlap(r.location.address, location.address) >= 0.4) || null;
+    new Date(r.createdAt).getTime() > cutoff &&
+    textOverlap(r.location.address, location.address) >= 0.4
+  ) || null;
 }
 
 // Base authorities every fresh install ships with, so "Assign" always has
@@ -209,7 +195,7 @@ function seedForUser(userId) {
     for (let i = 0; i < 14 + Math.floor(r() * 14); i++) {
       budgetItems.push({
         _id: id(), user: userId, document: docId,
-        title: `${pick(r, PREFIXES)} ${pick(r, SUBJECTS)} — ${spec.municipality}`,
+        title: `${pick(r, PREFIXES)} ${pick(r, SUBJECTS)} â€” ${spec.municipality}`,
         department: pick(r, DEPTS), sector: pick(r, SECTORS),
         amount: (0.2 + r() * 12) * 1e7, fiscalYear: spec.fiscalYear,
         province: provinceFor(spec.district), district: spec.district, municipality: spec.municipality, ward: String(1 + Math.floor(r() * WARD_COUNT)),
@@ -325,7 +311,7 @@ const store = {
   // ---- Corruption / misuse flagging channel (separate from fake-issue flagging) ----
   // A lightweight channel any signed-in user can use to flag a suspicious
   // budget line (inflated amount, implausible department/sector pairing,
-  // duplicate entry, etc.) for admin review — independent of the analyst
+  // duplicate entry, etc.) for admin review â€” independent of the analyst
   // change-request workflow, which is for correcting data, not reporting misuse.
   flagBudgetItem(itemId, userId, reason) {
     const item = budgetItems.find(b => b._id === itemId);
@@ -409,7 +395,7 @@ const store = {
         const p = change.proposed;
         const docId = id();
         documents.push({
-          _id: docId, user: change.requestedBy, title: `${p.title} — Manually Added Record`,
+          _id: docId, user: change.requestedBy, title: `${p.title} â€” Manually Added Record`,
           docType: 'manual-entry', fiscalYear: p.fiscalYear, district: p.district || '',
           fileName: null, fileSize: 0, organization: p.district || 'Manual Entry', status: 'completed',
           pageCount: 0, totalBudget: p.amount,
@@ -508,7 +494,12 @@ const store = {
     if (!title || !message) return { error: 'Title and message are required' };
     if (!['normal', 'important', 'urgent'].includes(priority)) priority = 'important';
     if (!['all', 'admin', 'analyst', 'researcher'].includes(audience)) audience = 'all';
-    const notice = { _id: id(), title, message, priority, audience, active: true, createdBy: adminId, createdAt: now(), updatedAt: now(), expiresAt: new Date(Date.now() + Math.max(1, Number(expiresInDays) || 7) * 86400000).toISOString() };
+    // Anchor expiry to the end of the calendar day, not a rolling N*24h
+    // timer from the exact creation time.
+    const expiryDate = new Date();
+    expiryDate.setHours(23, 59, 59, 999);
+    expiryDate.setDate(expiryDate.getDate() + (Math.max(1, Number(expiresInDays) || 7) - 1));
+    const notice = { _id: id(), title, message, priority, audience, active: true, createdBy: adminId, createdAt: now(), updatedAt: now(), expiresAt: expiryDate.toISOString() };
     notices.unshift(notice);
     const targets = users.filter(u => audience === 'all' || u.role === audience);
     targets.forEach(u => {
@@ -534,7 +525,7 @@ const store = {
 
   // Auto-creates a minimal, phone-verified "researcher" account for a
   // citizen who reports an issue via SMS before ever using the web app.
-  // No password/email — this account authenticates only by phone number
+  // No password/email â€” this account authenticates only by phone number
   // matching an inbound SMS sender, never through the normal login form.
   createSmsUser(phone) {
     const u = {
@@ -589,49 +580,35 @@ const store = {
     return { report: store.publicReport(r, userId) };
   },
 
-  async createReport(userId, { title, category, description, severity, location, reporterContact, photo, photoName, viaSms = false }) {
+  createReport(userId, { title, category, description, severity, location, reporterContact, photo, photoName, viaSms = false }) {
     const spec = REPORT_CATEGORIES.find(c => c.value === category);
     if (!spec) return { error: 'Unknown category' };
     if (!title || !description || !location?.address) return { error: 'Title, description and address are required' };
     if (!reporterContact || !reporterContact.trim()) return { error: 'A contact number is required so authorities can reach you about this report' };
-    if (!viaSms && (location?.lat == null || location?.lng == null)) return { error: 'Please pin your live location — it is required to submit a report' };
+    if (!viaSms && (location?.lat == null || location?.lng == null)) return { error: 'Please pin your live location â€” it is required to submit a report' };
     // Photos are optional (SMS-submitted reports can't attach one), capped at
     // ~5MB as a base64 data URL (~6.7MB encoded) to match the 5MB photo cap.
-    if (photo && photo.length > 7 * 1024 * 1024) return { error: 'Photo is too large — max 5MB' };
+    if (photo && photo.length > 7 * 1024 * 1024) return { error: 'Photo is too large â€” max 5MB' };
 
-    // AI enrichment, best-effort: translate a Nepali description to English
-    // for staff, and embed the address+description so future reports can be
-    // matched to this one semantically, not just by shared words.
-    const cleanDescription = description.trim();
-    const [translation, embedding] = await Promise.all([
-      looksNepali(cleanDescription) ? classifyFreeText(cleanDescription) : null,
-      embedText(`${location.address} — ${cleanDescription}`),
-    ]);
-
-    const dup = findDuplicateCandidate(category, location, embedding);
+    const dup = findDuplicateCandidate(category, location);
     const days = estimateDays(category, severity);
     const report = {
       _id: id(),
       title: title.trim(),
       category,
-      description: cleanDescription,
+      description: description.trim(),
       severity: severity || 'medium',
       location: { address: location.address || '', district: location.district || '', municipality: location.municipality || '', ward: location.ward || '', lat: location.lat ?? null, lng: location.lng ?? null },
       reportedBy: userId,
       reporterContact: reporterContact || '',
       photo: photo || '', photoName: photoName || '',
       viaSms: !!viaSms,
-      embedding: embedding || undefined,
-      language: translation?.language || (looksNepali(cleanDescription) ? 'ne' : 'en'),
-      translatedDescription: translation?.translatedText || '',
       upvotes: [userId],
       comments: [],
       status: dup ? 'duplicate' : 'pending',
       estimatedDays: dup ? dup.estimatedDays : days,
       dueDate: dup ? dup.dueDate : addDays(days),
       completedAt: null,
-      resolutionPhoto: '', resolutionPhotoName: '',
-      reopenCount: 0, reopenedAt: null,
       assignedDepartment: dup ? dup.assignedDepartment : '',
       assignedContact: dup ? dup.assignedContact : '',
       assignedBy: null,
@@ -651,7 +628,7 @@ const store = {
       // Let whoever is already handling the original know it's escalating.
       if (dup.assignedBy) store.createNotification(dup.assignedBy, { type: 'duplicate', title: 'Another report on an active issue', message: `"${dup.title}" now has ${dup.confirmations} citizen reports.`, link: `/issues/${dup._id}`, report: dup._id });
     } else {
-      store.notifyRoles(['admin', 'analyst'], { type: 'new-report', title: 'New community report', message: `${title.trim()} — ${location.address}${location.district ? ', ' + location.district : ''}`, link: `/issues/${report._id}`, report: report._id });
+      store.notifyRoles(['admin', 'analyst'], { type: 'new-report', title: 'New community report', message: `${title.trim()} â€” ${location.address}${location.district ? ', ' + location.district : ''}`, link: `/issues/${report._id}`, report: report._id });
     }
     activities.push({ _id: id(), user: userId, type: 'report', message: `Reported a ${spec.label.toLowerCase()} issue: "${title.trim()}"`, createdAt: now() });
     return { report: store.publicReport(report) };
@@ -695,7 +672,7 @@ const store = {
     return { ...store.publicReport(r), duplicates };
   },
 
-  // Phone-based lookup for the SMS "STATUS" command — no session, so we
+  // Phone-based lookup for the SMS "STATUS" command â€” no session, so we
   // trust the report id (or its last 6 chars) or fall back to the sender's
   // own most recent report by matching reporterContact/phone.
   getReportForSms(ref, phone) {
@@ -741,19 +718,17 @@ const store = {
       r.estimatedDays = days;
       r.dueDate = addDays(days);
       r.status = r.status === 'pending' ? 'verified' : r.status;
-      r.timeline.push({ action: 'eta-updated', note: `Analyst revised the estimate to ${days} day(s)${payload.note ? ` — ${payload.note}` : ''}`, by: actingUser._id, at: now() });
+      r.timeline.push({ action: 'eta-updated', note: `Analyst revised the estimate to ${days} day(s)${payload.note ? ` â€” ${payload.note}` : ''}`, by: actingUser._id, at: now() });
       notifyReporters({ type: 'eta-updated', title: 'Estimated completion updated', message: `"${r.title}" is now expected to be resolved in ${days} day(s).` });
     } else if (action === 'start') {
       r.status = 'in-progress';
       r.timeline.push({ action: 'in-progress', note: payload.note || 'Work has started on site', by: actingUser._id, at: now() });
       notifyReporters({ type: 'eta-updated', title: 'Work has started', message: `Crews have started work on "${r.title}".` });
     } else if (action === 'complete') {
-      if (payload.resolutionPhoto && payload.resolutionPhoto.length > 7 * 1024 * 1024) return { error: 'Proof photo is too large — max 5MB' };
       r.status = 'completed';
       r.completedAt = now();
-      if (payload.resolutionPhoto) { r.resolutionPhoto = payload.resolutionPhoto; r.resolutionPhotoName = payload.resolutionPhotoName || ''; }
       r.timeline.push({ action: 'completed', note: payload.note || 'Marked complete by analyst', by: actingUser._id, at: now() });
-      notifyReporters({ type: 'completed', title: 'Issue resolved', message: `Good news — "${r.title}" has been marked complete.` });
+      notifyReporters({ type: 'completed', title: 'Issue resolved', message: `Good news â€” "${r.title}" has been marked complete.` });
       store.notifyRoles(['admin'], { type: 'completed', title: 'Report closed', message: `${actingUser.name} closed "${r.title}".`, link: `/issues/${r._id}`, report: r._id });
     } else if (action === 'mark-fake') {
       if (!payload.reason) return { error: 'Give a reason so it can be reviewed later' };
@@ -774,35 +749,6 @@ const store = {
       return { error: 'Unknown action' };
     }
     r.updatedAt = now();
-    return { report: store.publicReport(r) };
-  },
-
-  // Lets the original reporter — or staff, on their behalf — reopen a
-  // report that was marked complete but the underlying problem wasn't
-  // actually fixed. Limited to a short window after completion so old,
-  // genuinely resolved work can't be reopened indefinitely.
-  reopenReport(reportId, actingUser, reason) {
-    const r = reports.find(x => x._id === reportId);
-    if (!r) return { error: 'Report not found' };
-
-    const isOwner = r.reportedBy === actingUser._id;
-    const isStaff = ['admin', 'analyst', 'ward_rep'].includes(actingUser.role);
-    if (!isOwner && !isStaff) return { error: 'Only the reporter or staff can reopen this report' };
-    if (r.status !== 'completed') return { error: 'Only a completed report can be reopened' };
-
-    const deadline = r.completedAt ? new Date(r.completedAt).getTime() + REOPEN_WINDOW_DAYS * 24 * 60 * 60 * 1000 : null;
-    if (deadline && Date.now() > deadline) return { error: `The ${REOPEN_WINDOW_DAYS}-day window to reopen this report has passed` };
-
-    const cleanReason = (reason || '').trim();
-    if (!cleanReason) return { error: 'Tell us what still needs fixing' };
-
-    r.status = 'pending';
-    r.reopenCount = (r.reopenCount || 0) + 1;
-    r.reopenedAt = now();
-    r.timeline.push({ action: 'reopened', note: cleanReason, by: actingUser._id, at: now() });
-    r.updatedAt = now();
-
-    store.notifyRoles(['admin', 'analyst'], { type: 'reopened', title: 'A resolved report was reopened', message: `"${r.title}" was reopened: ${cleanReason}`, link: `/issues/${r._id}`, report: r._id });
     return { report: store.publicReport(r) };
   },
 

@@ -65,11 +65,11 @@ export default function LoginPage() {
           {error && <div className={styles.errorBox}>{error}</div>}
           <form onSubmit={handleSubmit(onSubmit)}>
             <label className={styles.label}>Email <span className={styles.labelNp}>इमेल</span></label>
-            <input type="email" placeholder="you@example.com" className={`${styles.input} ${errors.email ? styles.inputError : ''}`} {...register('email', { required: 'Email is required' })} />
+            <input type="email" placeholder="" className={`${styles.input} ${errors.email ? styles.inputError : ''}`} {...register('email', { required: 'Email is required' })} />
             {errors.email && <span className={styles.errMsg}>{errors.email.message}</span>}
             <label className={styles.label}>Password <span className={styles.labelNp}>पासवर्ड</span></label>
             <div className={styles.inputWrap}>
-              <input type={showPw ? 'text' : 'password'} placeholder="••••••••" className={`${styles.input} ${errors.password ? styles.inputError : ''}`} style={{ paddingRight: 40 }} {...register('password', { required: 'Password is required' })} />
+              <input type={showPw ? 'text' : 'password'} placeholder="" className={`${styles.input} ${errors.password ? styles.inputError : ''}`} style={{ paddingRight: 40 }} {...register('password', { required: 'Password is required' })} />
               <button type="button" onClick={() => setShowPw(v => !v)} className={styles.inputIconBtn} aria-label={showPw ? 'Hide password' : 'Show password'}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
             </div>
             {errors.password && <span className={styles.errMsg}>{errors.password.message}</span>}

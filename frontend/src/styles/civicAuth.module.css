@@ -13,7 +13,7 @@
   color: var(--ink);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-.authShell { height: 100vh; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(420px, .95fr); background: var(--paper); overflow: hidden; }
+.authShell { height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(440px, 620px); background: var(--paper); overflow: hidden; }
 .sidePanel { position: relative; overflow: hidden; height: 100vh; border-right: 1px solid var(--line); }
 .sideImage { object-fit: cover; filter: saturate(.88) contrast(.95); }
 .sideVideo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(.88) contrast(.95); }
@@ -29,8 +29,8 @@
 .statStrip { display: flex; flex-wrap: wrap; gap: 34px; margin-top: 44px; }
 .statStrip div { color: #4f4a43; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .statStrip strong { display: block; margin-bottom: 4px; color: #060606; font-size: 22px; letter-spacing: 0; text-transform: none; }
-.formPanel { height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px; background: var(--paper); overflow-y: auto; }
-.formPanelInner { width: 100%; max-width: 470px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.88); box-shadow: 0 18px 60px rgba(16,42,43,.08); padding: 30px; }
+.formPanel { height: 100vh; overflow-y: auto; background: var(--paper); padding: 40px 40px 40px; }
+.formPanelInner { width: 100%; max-width: 520px; margin: 0 auto; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.88); box-shadow: 0 18px 60px rgba(16,42,43,.08); padding: 30px; }
 .mobileLogo { display: none; margin-bottom: 20px; }
 .eyebrow { margin: 0 0 14px; color: var(--sindoor); font-size: 11px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
 .tierTabs { display: flex; gap: 8px; margin-bottom: 24px; }
@@ -78,4 +78,28 @@
 .uploadedName span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .uploadedRemoveBtn { border: 0; background: transparent; color: #247345; cursor: pointer; padding: 3px; }
 @media (max-width: 980px) { .authShell { height: auto; grid-template-columns: 1fr; overflow: visible; } .sidePanel { height: auto; min-height: 420px; } .sidePanelContent { height: auto; min-height: 420px; padding: 32px; } .formPanel { height: auto; overflow-y: visible; } }
-@media (max-width: 620px) { .formPanel { padding: 18px; } .formPanelInner { padding: 22px; } .sidePanel { display: none; } .mobileLogo { display: block; } .rowTwo,.rowFour,.roleSelect { grid-template-columns: 1fr; } .demoGrid { grid-template-columns: 1fr; } }
+@media (max-width: 620px) {
+  .formPanel { padding: 14px; }
+  .formPanelInner { padding: 18px; }
+  .sidePanel { display: none; }
+  .mobileLogo { display: block; margin-bottom: 12px; }
+  .rowTwo,.rowFour,.roleSelect { grid-template-columns: 1fr; }
+  .demoGrid { grid-template-columns: 1fr; }
+  .eyebrow { margin-bottom: 8px; }
+  .tierTabs { margin-bottom: 14px; }
+  .pageTitle { font-size: 24px; }
+  .pageSub { margin: 5px 0 14px; font-size: 13px; }
+  .label { margin: 10px 0 5px; }
+  .input { padding: 9px 11px; font-size: 13px; }
+  .roleSelect { gap: 8px; margin-top: 6px; }
+  .roleCard { padding: 9px; }
+  .roleCardCopy { margin-top: 3px; font-size: 11px; line-height: 1.35; }
+  .jurisdictionBox { margin-top: 8px; padding: 10px; }
+  .jurisdictionTitle { margin-bottom: 7px; }
+  .rowFour { gap: 7px; }
+  .uploadBox { min-height: 60px; padding: 9px; gap: 3px; }
+  .btn { margin-top: 14px; padding: 11px 16px; }
+  .divider { margin: 14px 0 8px; }
+  .footNote { margin-top: 12px; font-size: 12px; }
+  .checkboxRow { margin-top: 10px; }
+}

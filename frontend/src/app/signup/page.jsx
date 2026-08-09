@@ -49,8 +49,8 @@ export default function SignupPage() {
       {error && <div className={styles.errorBox}>{error}</div>}
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className={styles.rowTwo}>
-          <div><label className={styles.label}>Full name <span className={styles.labelNp}>पुरा नाम</span></label><input className={`${styles.input} ${errors.name ? styles.inputError : ''}`} placeholder="Sita Sharma" {...register('name', { required: 'Name is required' })} />{errors.name && <span className={styles.errMsg}>{errors.name.message}</span>}</div>
-          <div><label className={styles.label}>Email <span className={styles.labelNp}>इमेल</span></label><input type="email" className={`${styles.input} ${errors.email ? styles.inputError : ''}`} placeholder="you@example.com" {...register('email', { required: 'Email is required', pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' } })} />{errors.email && <span className={styles.errMsg}>{errors.email.message}</span>}</div>
+          <div><label className={styles.label}>Full name <span className={styles.labelNp}>पुरा नाम</span></label><input className={`${styles.input} ${errors.name ? styles.inputError : ''}`} placeholder="" {...register('name', { required: 'Name is required' })} />{errors.name && <span className={styles.errMsg}>{errors.name.message}</span>}</div>
+          <div><label className={styles.label}>Email <span className={styles.labelNp}>इमेल</span></label><input type="email" className={`${styles.input} ${errors.email ? styles.inputError : ''}`} placeholder="" {...register('email', { required: 'Email is required', pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' } })} />{errors.email && <span className={styles.errMsg}>{errors.email.message}</span>}</div>
         </div>
         <div>
           <label className={styles.label}>I am signing up as <span className={styles.labelNp}>म को रूपमा दर्ता गर्दैछु</span></label>
