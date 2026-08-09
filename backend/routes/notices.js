@@ -11,17 +11,6 @@ function visibleFilter(user) {
   return { active: true, audience: { $in: ['all', user.role] }, $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] };
 }
 
-// Expiry is anchored to the calendar day, not a rolling N*24h timer from the
-// exact creation time. A notice created any time "today" (even at 12:01am)
-// still expires at the end of that same day for a 1-day notice, and at the
-// end of the (N-1)th following day for an N-day notice.
-function expiresAtEndOfDay(days) {
-  const d = new Date();
-  d.setHours(23, 59, 59, 999);
-  d.setDate(d.getDate() + (Math.max(1, Number(days) || 1) - 1));
-  return d;
-}
-
 
 router.get('/public-active', async (req, res) => {
   try {
@@ -49,9 +38,12 @@ router.post('/', protect, requireRole('admin'), async (req, res) => {
     const message = String(req.body?.message || '').trim();
     const priority = ['normal', 'important', 'urgent'].includes(req.body?.priority) ? req.body.priority : 'important';
     const audience = ['all', 'admin', 'analyst', 'researcher'].includes(req.body?.audience) ? req.body.audience : 'all';
-    const expiresInDays = Number(req.body?.expiresInDays || 7);
+    const durationUnit = req.body?.durationUnit === 'days' ? 'days' : 'hours';
+    const durationValueRaw = Number(req.body?.durationValue);
+    const durationValue = Math.max(1, Number.isFinite(durationValueRaw) && durationValueRaw > 0 ? durationValueRaw : 24);
+    const durationMs = durationUnit === 'days' ? durationValue * 24 * 60 * 60 * 1000 : durationValue * 60 * 60 * 1000;
     if (!title || !message) return res.status(422).json({ error: 'Title and message are required' });
-    const notice = await Notice.create({ title, message, priority, audience, createdBy: req.user._id, expiresAt: expiresAtEndOfDay(expiresInDays) });
+    const notice = await Notice.create({ title, message, priority, audience, createdBy: req.user._id, expiresAt: new Date(Date.now() + durationMs) });
     const filter = audience === 'all' ? {} : { role: audience };
     const users = await User.find(filter).select('_id email name');
     if (users.length) {

@@ -17,7 +17,6 @@ const wardRoutes = require('./routes/wards');
 const smsRoutes = require('./routes/sms');
 const Authority = require('./models/Authority');
 const { parseInboundSms, helpText, sendSms, normalizePhone, VALID_CATEGORIES } = require('./utils/sms');
-const { classifyFreeText } = require('./utils/civicAI');
 const { code, hashCode, expires, validHash, welcomeEmail, otpEmail, resetEmail } = require('./utils/authEmails');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'govinsight-nepal-jwt-secret';
@@ -86,7 +85,7 @@ app.post('/api/auth/signup', async (req, res) => {
     if (exists) return res.status(409).json({ error: 'An account with this email already exists' });
     // Public signup only ever creates the first account as admin, or a normal
     // (researcher/viewer) account after that. Analyst access is granted only
-    // by an existing admin from User Management — never through signup.
+    // by an existing admin from User Management â€” never through signup.
     const isFirst = store.userCount() === 0;
     const finalRole = role === 'ward_rep' ? 'ward_rep' : (isFirst ? 'admin' : 'researcher');
 
@@ -115,7 +114,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Auto-provision demo accounts
     if (!user && email.endsWith('@govinsight.np')) {
       const roleMap = { 'admin@govinsight.np': 'admin', 'analyst@govinsight.np': 'analyst', 'researcher@govinsight.np': 'researcher' };
-      const names = { 'admin@govinsight.np': 'Saurabh', 'analyst@govinsight.np': 'Panas', 'researcher@govinsight.np': 'Sakshi' };
+      const names = { 'admin@govinsight.np': 'Saurabh', 'analyst@govinsight.np': 'Raja', 'researcher@govinsight.np': 'Anup' };
       const demoRole = roleMap[email] || 'analyst';
       user = await store.createUser({ name: names[email] || 'Demo User', email, password: password, role: demoRole, organization: 'Civicदृष्टि' });
       store.seedForUser(user._id);
@@ -205,7 +204,7 @@ app.get('/api/analytics', protect, (req, res) => {
   const recentDocuments = docs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 6);
 
   res.json({
-    kpis: { documents: docs.length, totalBudget, departments: deptSet.size, projects: projs.length, latestFy: fys[fys.length - 1] || '—' },
+    kpis: { documents: docs.length, totalBudget, departments: deptSet.size, projects: projs.length, latestFy: fys[fys.length - 1] || 'â€”' },
     sectorBreakdown, budgetTrend, topDepartments, districts, utilization, recentDocuments,
     activity: acts.map(a => ({ _id: a._id, type: a.type, message: a.message, createdAt: a.createdAt })),
   });
@@ -250,7 +249,7 @@ app.post('/api/budgets/:id/changes', protect, (req, res) => {
   res.status(201).json({ change });
 });
 
-// Propose a brand-new budget record (not an edit to an existing line) — e.g.
+// Propose a brand-new budget record (not an edit to an existing line) â€” e.g.
 // data for a municipality or fiscal year that isn't in the system yet.
 app.post('/api/budgets/changes', protect, (req, res) => {
   if (!['analyst', 'ward_rep'].includes(req.user.role)) return res.status(403).json({ error: 'Only analysts or ward representatives can propose new records' });
@@ -277,7 +276,7 @@ app.patch('/api/budgets/changes/:id', protect, (req, res) => {
   res.json({ change });
 });
 
-// Corruption / misuse flagging channel — any signed-in user can flag a
+// Corruption / misuse flagging channel â€” any signed-in user can flag a
 // budget line as suspicious; only admins can clear the flag after review.
 app.post('/api/budgets/:id/flag', protect, (req, res) => {
   const result = store.flagBudgetItem(req.params.id, req.user._id, req.body?.reason);
@@ -307,14 +306,14 @@ app.get('/api/departments', protect, (req, res) => {
   });
 
   if (!name) {
-    const list = Object.values(map).map(e => ({ name: e.name, total: e.total, count: e.count, topSector: Object.entries(e.sectors).sort((a, b) => b[1] - a[1])[0]?.[0] || '—', districts: e.districts.size })).sort((a, b) => b.total - a.total);
+    const list = Object.values(map).map(e => ({ name: e.name, total: e.total, count: e.count, topSector: Object.entries(e.sectors).sort((a, b) => b[1] - a[1])[0]?.[0] || 'â€”', districts: e.districts.size })).sort((a, b) => b.total - a.total);
     return res.json({ departments: list });
   }
 
   const entry = map[name];
   if (!entry) return res.json({ department: null });
   const lines = budgets.filter(b => shortDept(b.department) === name).sort((a, b) => b.amount - a.amount).slice(0, 60).map(b => ({ _id: b._id, title: b.title, sector: b.sector, amount: b.amount, fiscalYear: b.fiscalYear, district: b.district, page: b.page, documentId: b.document }));
-  res.json({ department: { name, total: entry.total, count: entry.count, districts: entry.districts.size, topSector: Object.entries(entry.sectors).sort((a, b) => b[1] - a[1])[0]?.[0] || '—', sectors: Object.entries(entry.sectors).map(([key, value]) => ({ key, value, color: SECTOR_COLORS[key] || '#2563EB' })).sort((a, b) => b.value - a.value), trend: Object.entries(entry.byYear).map(([key, value]) => ({ key, value })).sort((a, b) => a.key.localeCompare(b.key)), lines } });
+  res.json({ department: { name, total: entry.total, count: entry.count, districts: entry.districts.size, topSector: Object.entries(entry.sectors).sort((a, b) => b[1] - a[1])[0]?.[0] || 'â€”', sectors: Object.entries(entry.sectors).map(([key, value]) => ({ key, value, color: SECTOR_COLORS[key] || '#2563EB' })).sort((a, b) => b.value - a.value), trend: Object.entries(entry.byYear).map(([key, value]) => ({ key, value })).sort((a, b) => a.key.localeCompare(b.key)), lines } });
 });
 
 // ---- USERS (admin) ----
@@ -350,9 +349,9 @@ app.get('/api/reports', protect, (req, res) => {
   res.json({ reports: store.listReports(req.user, req.query) });
 });
 
-app.post('/api/reports', protect, async (req, res) => {
+app.post('/api/reports', protect, (req, res) => {
   if (req.user.role !== 'researcher') return res.status(403).json({ error: 'Only researchers can submit a community report' });
-  const result = await store.createReport(req.user._id, req.body || {});
+  const result = store.createReport(req.user._id, req.body || {});
   if (result.error) return res.status(422).json({ error: result.error });
   res.status(201).json(result);
 });
@@ -373,19 +372,9 @@ app.patch('/api/reports/:id', protect, (req, res) => {
   res.json(result);
 });
 
-// Lets the original reporter (or staff) reopen a report that was marked
-// complete but wasn't actually fixed, within a short window after
-// completion. Separate from the staff-only PATCH above since a citizen
-// reporter needs to be able to call it too.
-app.post('/api/reports/:id/reopen', protect, (req, res) => {
-  const result = store.reopenReport(req.params.id, req.user, req.body?.reason);
-  if (result.error) return res.status(422).json({ error: result.error });
-  res.json(result);
-});
-
 // ---- SMS REPORTING FALLBACK ----
 // Inbound webhook a carrier (Twilio or equivalent) calls when a citizen
-// texts in. No JWT auth here by design — SMS senders aren't logged into
+// texts in. No JWT auth here by design â€” SMS senders aren't logged into
 // the web app; the phone number itself is the identity. Point your
 // carrier's inbound-SMS webhook at POST /api/sms/inbound.
 app.post('/api/sms/inbound', async (req, res) => {
@@ -403,31 +392,23 @@ app.post('/api/sms/inbound', async (req, res) => {
     } else if (cmd.type === 'status') {
       const report = store.getReportForSms(cmd.ref, phone);
       reply = report
-        ? `Report "${report.title}" — status: ${report.status}${report.assignedDepartment ? ` (${report.assignedDepartment})` : ''}. ID: ${report._id.slice(-6)}`
+        ? `Report "${report.title}" â€” status: ${report.status}${report.assignedDepartment ? ` (${report.assignedDepartment})` : ''}. ID: ${report._id.slice(-6)}`
         : "No matching report found. Text your report ID, or REPORT to file a new one.";
     } else if (cmd.type === 'report') {
-      let category = cmd.category;
-      let aiNote = '';
-      if (!category && cmd.description) {
-        // No recognized category keyword — ask Gemini to classify the free
-        // text instead of immediately rejecting the report.
-        const guess = await classifyFreeText(cmd.description);
-        if (guess.category) { category = guess.category; aiNote = ' (AI-classified from your message)'; }
-      }
-      if (!category) {
+      if (!cmd.category) {
         reply = `Category not recognized. Valid categories: ${VALID_CATEGORIES.join(', ')}`;
       } else {
         let smsUser = store.findUserByPhone(phone);
         if (!smsUser) {
           // Auto-create a lightweight, phone-verified citizen account so the
           // report has an owner and the sender can check status later. No
-          // password/email — this account can only be used via SMS.
+          // password/email â€” this account can only be used via SMS.
           smsUser = store.createSmsUser(phone);
         }
-        const result = await store.createReport(smsUser._id, {
-          title: cmd.description.slice(0, 80) || `${category} report`,
-          category,
-          description: cmd.description || category,
+        const result = store.createReport(smsUser._id, {
+          title: cmd.description.slice(0, 80) || `${cmd.category} report`,
+          category: cmd.category,
+          description: cmd.description || cmd.category,
           severity: 'medium',
           location: { address: cmd.district || 'Unspecified (via SMS)', district: cmd.district || '' },
           reporterContact: phone,
@@ -435,7 +416,7 @@ app.post('/api/sms/inbound', async (req, res) => {
         });
         reply = result.error
           ? `Could not file report: ${result.error}`
-          : `Report received${aiNote}. ID: ${result.report._id.slice(-6)}. Text STATUS ${result.report._id.slice(-6)} to check progress.`;
+          : `Report received. ID: ${result.report._id.slice(-6)}. Text STATUS ${result.report._id.slice(-6)} to check progress.`;
       }
     } else {
       reply = `Unrecognized message. Text HELP for commands.\n${helpText()}`;
@@ -558,7 +539,7 @@ async function start() {
       await Authority.insertMany(BASE_AUTHORITIES.map(name => ({ name, department: name, district: '', source: 'seed' })));
     }
   }
-  app.listen(PORT, () => console.log(`âœ“ Express API on :${PORT} (${getMode()} mode)`));
+  app.listen(PORT, () => console.log(`✓ Express API on :${PORT} (${getMode()} mode)`));
 }
 
 start();

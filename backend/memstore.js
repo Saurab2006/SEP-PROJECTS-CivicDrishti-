@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { fallbackSuggestAuthoritiesForArea } = require('./utils/authorityAI');
 const { sendEmailQuietly } = require('./utils/email');
 const { code, hashCode, expires, validHash, welcomeEmail, otpEmail, resetEmail, accountDecisionEmail, budgetDecisionEmail } = require('./utils/authEmails');
+const { randomAvatarHue } = require('./utils/avatarHue');
 
 function id() { return crypto.randomBytes(12).toString('hex'); }
 function now() { return new Date().toISOString(); }
@@ -231,7 +232,7 @@ const store = {
     const jobTitle = role === 'admin' ? 'Administrator' : role === 'analyst' ? 'Analyst' : role === 'ward_rep' ? 'Ward Representative' : 'Researcher';
     const u = {
       _id: id(), name, email: email.toLowerCase().trim(), password: hashed, role,
-      organization: organization || 'Independent', jobTitle, avatarHue: Math.floor(Math.random() * 360),
+      organization: organization || 'Independent', jobTitle, avatarHue: randomAvatarHue(),
       status: role === 'ward_rep' ? 'suspended' : 'active', createdAt: now(),
       citizenshipDoc: ['researcher', 'ward_rep'].includes(role) ? (citizenshipDoc || '') : '',
       citizenshipDocName: ['researcher', 'ward_rep'].includes(role) ? (citizenshipDocName || '') : '',
@@ -494,12 +495,7 @@ const store = {
     if (!title || !message) return { error: 'Title and message are required' };
     if (!['normal', 'important', 'urgent'].includes(priority)) priority = 'important';
     if (!['all', 'admin', 'analyst', 'researcher'].includes(audience)) audience = 'all';
-    // Anchor expiry to the end of the calendar day, not a rolling N*24h
-    // timer from the exact creation time.
-    const expiryDate = new Date();
-    expiryDate.setHours(23, 59, 59, 999);
-    expiryDate.setDate(expiryDate.getDate() + (Math.max(1, Number(expiresInDays) || 7) - 1));
-    const notice = { _id: id(), title, message, priority, audience, active: true, createdBy: adminId, createdAt: now(), updatedAt: now(), expiresAt: expiryDate.toISOString() };
+    const notice = { _id: id(), title, message, priority, audience, active: true, createdBy: adminId, createdAt: now(), updatedAt: now(), expiresAt: new Date(Date.now() + Math.max(1, Number(expiresInDays) || 7) * 86400000).toISOString() };
     notices.unshift(notice);
     const targets = users.filter(u => audience === 'all' || u.role === audience);
     targets.forEach(u => {
@@ -531,7 +527,7 @@ const store = {
     const u = {
       _id: id(), name: `SMS Reporter ${phone.slice(-4)}`, email: `sms-${phone}@no-reply.govinsight.local`,
       password: '', role: 'researcher', organization: 'SMS Reporter', jobTitle: 'Citizen Reporter',
-      avatarHue: Math.floor(Math.random() * 360), status: 'active', createdAt: now(),
+      avatarHue: randomAvatarHue(), status: 'active', createdAt: now(),
       phone, citizenshipDoc: '', citizenshipDocName: '', verificationStatus: 'n/a',
     };
     users.push(u);

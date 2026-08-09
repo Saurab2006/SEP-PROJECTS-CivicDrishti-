@@ -10,7 +10,7 @@ export default function SettingsPage() {
   const { user, verifyEmail, resendEmailOtp } = useAuth();
   const [otp, setOtp] = useState('');
   const [verifying, setVerifying] = useState(false);
-  const [notice, setNotice] = useState({ title: '', message: '', priority: 'important', audience: 'all', expiresInDays: 7 });
+  const [notice, setNotice] = useState({ title: '', message: '', priority: 'important', audience: 'all', durationValue: 24, durationUnit: 'hours' });
   const [sending, setSending] = useState(false);
   if (!user) return null;
 
@@ -33,7 +33,7 @@ export default function SettingsPage() {
     try {
       const d = await post('/api/notices', notice);
       toast.success(`Notice sent to ${d.emailed || 0} user(s)`);
-      setNotice({ title: '', message: '', priority: 'important', audience: 'all', expiresInDays: 7 });
+      setNotice({ title: '', message: '', priority: 'important', audience: 'all', durationValue: 24, durationUnit: 'hours' });
     } catch (err) { toast.error(err.message); }
     setSending(false);
   };
@@ -71,6 +71,14 @@ export default function SettingsPage() {
           <select value={notice.audience} onChange={e => setNotice(n => ({ ...n, audience: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="all">All users</option><option value="researcher">Citizens</option><option value="analyst">Analysts</option><option value="admin">Admins</option></select>
           <select value={notice.priority} onChange={e => setNotice(n => ({ ...n, priority: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="important">Important</option><option value="urgent">Urgent</option><option value="normal">Normal</option></select>
           <textarea value={notice.message} onChange={e => setNotice(n => ({ ...n, message: e.target.value }))} placeholder="Write the notice people must see" className="min-h-28 rounded-lg border border-[#ded6c8] px-3 py-2 text-sm outline-none focus:border-[#0f3d3e] sm:col-span-2" />
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-[#8c8272]">Notice stays visible for</label>
+            <div className="flex gap-2">
+              <input type="number" min="1" value={notice.durationValue} onChange={e => setNotice(n => ({ ...n, durationValue: e.target.value }))} className="h-10 w-24 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]" />
+              <select value={notice.durationUnit} onChange={e => setNotice(n => ({ ...n, durationUnit: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="hours">Hours</option><option value="days">Days</option></select>
+              <span className="flex items-center text-xs text-[#8c8272]">Default: 24 hours</span>
+            </div>
+          </div>
         </div>
         <button disabled={sending || !notice.title.trim() || !notice.message.trim()} className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-[#0f3d3e] px-4 text-sm font-black text-white disabled:opacity-50"><Send className="h-4 w-4" />Send notice + email</button>
       </form>}

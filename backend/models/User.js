@@ -1,5 +1,6 @@
 ﻿const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { randomAvatarHue } = require('../utils/avatarHue');
 
 const userSchema = new mongoose.Schema({
   name:         { type: String, required: true, trim: true },
@@ -8,7 +9,7 @@ const userSchema = new mongoose.Schema({
   role:         { type: String, enum: ['admin', 'analyst', 'researcher', 'ward_rep'], default: 'analyst' },
   organization: { type: String, default: 'Independent' },
   jobTitle:     { type: String, default: 'Analyst' },
-  avatarHue:    { type: Number, default: () => Math.floor(Math.random() * 360) },
+  avatarHue:    { type: Number, default: randomAvatarHue },
   status:       { type: String, enum: ['active', 'suspended'], default: 'active' },
   emailVerified: { type: Boolean, default: false },
   emailOtpHash: { type: String, default: '' },
@@ -18,7 +19,7 @@ const userSchema = new mongoose.Schema({
 
   // Phone number, normalized to digits only (e.g. "9779812345678").
   // Used to identify citizens reporting issues over SMS, since a text
-  // message can't carry a JWT — the phone number is the identity.
+  // message can't carry a JWT ” the phone number is the identity.
   phone:        { type: String, default: '', trim: true },
 
   // Identity verification (required at signup for researcher/citizen accounts).

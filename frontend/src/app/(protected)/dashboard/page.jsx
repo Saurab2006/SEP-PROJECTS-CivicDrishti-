@@ -76,7 +76,7 @@ export default function DashboardPage() {
       {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#eae4d8] pb-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#a39d8d]">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#cf1f3b]">
             {t('dashboard.namaste')}{firstName ? `, ${firstName.toUpperCase()}` : ''}
           </p>
           <h1 className="mt-2 text-[28px] font-semibold tracking-tight text-[#102a2b]">{t('dashboard.pageTitle')}</h1>
