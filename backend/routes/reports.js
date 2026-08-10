@@ -4,7 +4,8 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Authority = require('../models/Authority');
 const { protect } = require('../middleware/auth');
-const { embedText, bestSemanticMatch, classifyFreeText, looksNepali } = require('../utils/civicAI');
+const { embedText, bestSemanticMatch, classifyFreeText, looksNepali, CROSS_CATEGORY_DUPLICATE_THRESHOLD } = require('../utils/civicAI');
+const { sendSms } = require('../utils/sms');
 
 const router = express.Router();
 
@@ -56,9 +57,11 @@ function serializeReport(report, viewerId) {
 // so dedup keeps working exactly as before either way.
 async function findDuplicateCandidate(category, location, description, newEmbedding) {
   const cutoff = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000);
+  const districtMatch = new RegExp(`^${(location.district || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+
   const candidates = await IncidentReport.find({
     category, duplicateOf: null, status: { $nin: ['completed', 'rejected'] },
-    'location.district': new RegExp(`^${(location.district || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+    'location.district': districtMatch,
     createdAt: { $gt: cutoff },
   });
 
@@ -69,7 +72,27 @@ async function findDuplicateCandidate(category, location, description, newEmbedd
   // Fall back to word-overlap, but only against candidates that couldn't be
   // compared semantically (either side missing an embedding).
   const remaining = candidates.filter(c => !withEmbedding.includes(c));
-  return remaining.find(r => textOverlap(r.location.address, location.address) >= 0.4) || null;
+  const wordMatch = remaining.find(r => textOverlap(r.location.address, location.address) >= 0.4);
+  if (wordMatch) return wordMatch;
+
+  // A citizen describing the same problem often files it under a different
+  // category than the next person ("Other" vs "Flood / Waterlogging" for the
+  // same waterlogged road). If nothing matched within this category, widen
+  // the search to the whole district and require stronger semantic evidence
+  // before merging across categories, so we don't wrongly conflate two
+  // genuinely different issues that just happen to sit near each other.
+  if (newEmbedding) {
+    const crossCategoryCandidates = await IncidentReport.find({
+      category: { $ne: category }, duplicateOf: null, status: { $nin: ['completed', 'rejected'] },
+      'location.district': districtMatch,
+      createdAt: { $gt: cutoff },
+      embedding: { $exists: true, $ne: [] },
+    });
+    const crossMatch = bestSemanticMatch(newEmbedding, crossCategoryCandidates, CROSS_CATEGORY_DUPLICATE_THRESHOLD);
+    if (crossMatch) return crossMatch;
+  }
+
+  return null;
 }
 async function notifyRoles(roles, payload) {
   const recipients = await User.find({ role: { $in: roles } }).select('_id');
@@ -78,6 +101,18 @@ async function notifyRoles(roles, payload) {
 async function notifyReporters(report, payload) {
   const linked = await IncidentReport.find({ $or: [{ _id: report._id }, { duplicateOf: report._id }] }).select('reportedBy');
   if (linked.length) await Notification.insertMany(linked.map(r => ({ user: r.reportedBy, ...payload, report: report._id, link: payload.link || `/issues/${report._id}` })));
+}
+
+// Texts every reporter linked to this issue (the original filer plus anyone
+// whose duplicate report got merged into it) at the phone number they gave
+// when reporting. For citizens without a smartphone or reliable data, this
+// closing-the-loop text matters more than an in-app notification they may
+// never see. sendSms() already no-ops to a console log when Twilio isn't
+// configured, so this is always safe to call.
+async function notifyReportersSms(report, message) {
+  const linked = await IncidentReport.find({ $or: [{ _id: report._id }, { duplicateOf: report._id }] }).select('reporterContact');
+  const numbers = [...new Set(linked.map(r => r.reporterContact).filter(Boolean))];
+  await Promise.all(numbers.map(phone => sendSms(phone, message).catch(() => null)));
 }
 
 router.get('/meta', protect, async (req, res) => {
@@ -257,6 +292,7 @@ router.patch('/:id', protect, async (req, res) => {
       report.status = 'verified';
       report.timeline.push({ action: 'verified', note: payload.note || 'Confirmed as a genuine issue', by: req.user._id });
       await notifyReporters(report, { type: 'verified', title: 'Your report was verified', message: `"${report.title}" has been confirmed and is being reviewed.` });
+      await notifyReportersSms(report, `Civicदृष्टि: Your report "${report.title.slice(0, 60)}" was verified and is being reviewed.`);
     } else if (action === 'assign') {
       if (!payload.assignedDepartment) return res.status(422).json({ error: 'Choose an authority to assign this to' });
       report.assignedDepartment = payload.assignedDepartment;
@@ -265,6 +301,7 @@ router.patch('/:id', protect, async (req, res) => {
       report.status = 'assigned';
       report.timeline.push({ action: 'assigned', note: `Handed to ${payload.assignedDepartment}${payload.assignedContact ? ` (${payload.assignedContact})` : ''}`, by: req.user._id });
       await notifyReporters(report, { type: 'assigned', title: 'Your report was assigned', message: `"${report.title}" was assigned to ${payload.assignedDepartment}.` });
+      await notifyReportersSms(report, `Civicदृष्टि: Your report "${report.title.slice(0, 60)}" was assigned to ${payload.assignedDepartment}.`);
     } else if (action === 'set-eta') {
       const days = Number(payload.estimatedDays);
       if (!Number.isFinite(days) || days <= 0) return res.status(422).json({ error: 'Enter a valid number of days' });
@@ -284,6 +321,7 @@ router.patch('/:id', protect, async (req, res) => {
       if (payload.resolutionPhoto) { report.resolutionPhoto = payload.resolutionPhoto; report.resolutionPhotoName = payload.resolutionPhotoName || ''; }
       report.timeline.push({ action: 'completed', note: payload.note || 'Marked complete by analyst', by: req.user._id });
       await notifyReporters(report, { type: 'completed', title: 'Issue resolved', message: `Good news - "${report.title}" has been marked complete.` });
+      await notifyReportersSms(report, `Civicदृष्टि: Good news! Your report "${report.title.slice(0, 60)}" has been marked complete.`);
       await notifyRoles(['admin'], { type: 'completed', title: 'Report closed', message: `${req.user.name} closed "${report.title}".`, link: `/issues/${report._id}`, report: report._id });
     } else if (action === 'mark-fake') {
       if (!payload.reason) return res.status(422).json({ error: 'Give a reason so it can be reviewed later' });

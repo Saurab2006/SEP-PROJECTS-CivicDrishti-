@@ -1,6 +1,7 @@
 const express = require('express');
 const Authority = require('../models/Authority');
 const Review = require('../models/Review');
+const IncidentReport = require('../models/IncidentReport');
 const { protect } = require('../middleware/auth');
 const { suggestAuthoritiesForArea } = require('../utils/authorityAI');
 
@@ -61,8 +62,37 @@ router.post('/:id/reviews', protect, async (req, res) => {
     if (!authority) return res.status(404).json({ error: 'Authority not found' });
     const rating = Number(req.body.rating);
     if (!Number.isFinite(rating) || rating < 1 || rating > 5) return res.status(422).json({ error: 'Rating must be between 1 and 5' });
-    const review = await Review.create({ authority: authority._id, report: req.body.report || null, user: req.user._id, rating, comment: (req.body.comment || '').trim() });
+    const comment = (req.body.comment || '').trim();
 
+    // A rating tied to a specific report is a stronger, harder-to-abuse
+    // signal than an open review, so when one is provided we verify it's
+    // real: it belongs to the reviewer, it's actually been resolved, and
+    // this authority is the one that handled it.
+    let reportId = null;
+    if (req.body.report) {
+      const report = await IncidentReport.findById(req.body.report);
+      if (!report) return res.status(404).json({ error: 'Report not found' });
+      if (String(report.reportedBy) !== String(req.user._id)) return res.status(403).json({ error: 'You can only rate an authority using your own report' });
+      if (report.status !== 'completed') return res.status(422).json({ error: 'You can rate an authority once your report is marked complete' });
+      if (report.assignedDepartment !== authority.name) return res.status(422).json({ error: 'This report was not handled by this authority' });
+      reportId = report._id;
+    }
+
+    // One rating per report, editable rather than stackable — resubmitting
+    // updates your existing review instead of inflating the count.
+    const existing = reportId ? await Review.findOne({ authority: authority._id, report: reportId, user: req.user._id }) : null;
+
+    if (existing) {
+      const total = authority.ratingAvg * authority.ratingCount - existing.rating + rating;
+      authority.ratingAvg = Math.round((total / authority.ratingCount) * 10) / 10;
+      existing.rating = rating;
+      existing.comment = comment;
+      await Promise.all([existing.save(), authority.save()]);
+      await existing.populate('user', 'name role avatarHue');
+      return res.json({ review: existing, authority, updated: true });
+    }
+
+    const review = await Review.create({ authority: authority._id, report: reportId, user: req.user._id, rating, comment });
     const total = authority.ratingAvg * authority.ratingCount + rating;
     authority.ratingCount += 1;
     authority.ratingAvg = Math.round((total / authority.ratingCount) * 10) / 10;

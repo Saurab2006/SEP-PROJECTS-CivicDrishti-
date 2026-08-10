@@ -367,7 +367,7 @@ export default function ReportDetailPage() {
       </div>
 
       {report.assignedDepartment && (
-        <ReviewsCard authority={authority} authorityName={report.assignedDepartment} reportId={report._id} reviews={reviews} onChanged={refreshReviews} />
+        <ReviewsCard authority={authority} authorityName={report.assignedDepartment} reportId={report._id} reviews={reviews} onChanged={refreshReviews} canRate={report.status === 'completed'} currentUserId={user?._id} />
       )}
     </div>
     {showIdDoc && isStaff && report.reportedBy && (
@@ -506,18 +506,25 @@ function MapCard({ location }) {
   );
 }
 
-function ReviewsCard({ authority, authorityName, reportId, reviews, onChanged }) {
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
+function ReviewsCard({ authority, authorityName, reportId, reviews, onChanged, canRate, currentUserId }) {
+  const myReview = currentUserId ? reviews.find(r => r.user?._id === currentUserId) : null;
+  const [rating, setRating] = useState(myReview?.rating || 5);
+  const [comment, setComment] = useState(myReview?.comment || '');
   const [submitting, setSubmitting] = useState(false);
+
+  // Keep the form in sync if reviews reload with a different (or new) review
+  // from this user, e.g. right after submitting.
+  useEffect(() => {
+    if (myReview) { setRating(myReview.rating); setComment(myReview.comment || ''); }
+    // eslint-disable-next-line
+  }, [myReview?._id]);
 
   const submitReview = async () => {
     if (!authority) { toast.error('This authority isn\'t registered yet — ask an admin to add it'); return; }
     setSubmitting(true);
     try {
       await post(`/api/authorities/${authority._id}/reviews`, { rating, comment, report: reportId });
-      toast.success('Review submitted');
-      setComment('');
+      toast.success(myReview ? 'Review updated' : 'Review submitted');
       onChanged();
     } catch (err) { toast.error(err.message); }
     setSubmitting(false);
@@ -535,19 +542,23 @@ function ReviewsCard({ authority, authorityName, reportId, reviews, onChanged })
         )}
       </div>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1">
-          {[1, 2, 3, 4, 5].map(n => (
-            <button key={n} type="button" onClick={() => setRating(n)}>
-              <Star className={cn('w-5 h-5', n <= rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200')} />
-            </button>
-          ))}
+      {canRate ? (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-1">
+            {[1, 2, 3, 4, 5].map(n => (
+              <button key={n} type="button" onClick={() => setRating(n)}>
+                <Star className={cn('w-5 h-5', n <= rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200')} />
+              </button>
+            ))}
+          </div>
+          <input value={comment} onChange={e => setComment(e.target.value)} placeholder="How is this authority handling it?" className="flex-1 min-w-[180px] h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand-500" />
+          <button disabled={submitting} onClick={submitReview} className="h-9 px-3 rounded-lg bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 disabled:opacity-60">
+            {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : myReview ? 'Update review' : 'Submit review'}
+          </button>
         </div>
-        <input value={comment} onChange={e => setComment(e.target.value)} placeholder="How is this authority handling it?" className="flex-1 min-w-[180px] h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand-500" />
-        <button disabled={submitting} onClick={submitReview} className="h-9 px-3 rounded-lg bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 disabled:opacity-60">
-          {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Submit review'}
-        </button>
-      </div>
+      ) : (
+        <p className="text-xs text-gray-400">You'll be able to rate {authorityName} once this report is marked complete.</p>
+      )}
 
       <div className="space-y-3 pt-2 border-t border-gray-50">
         {reviews.length === 0 ? (
@@ -557,7 +568,7 @@ function ReviewsCard({ authority, authorityName, reportId, reviews, onChanged })
             <div>
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map(n => <Star key={n} className={cn('w-3 h-3', n <= r.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200')} />)}
-                <span className="font-medium text-gray-700 ml-1">{r.user?.name || 'User'}</span>
+                <span className="font-medium text-gray-700 ml-1">{r.user?.name || 'User'}{r.user?._id === currentUserId ? ' (you)' : ''}</span>
               </div>
               {r.comment && <p className="text-gray-500 mt-0.5">{r.comment}</p>}
             </div>

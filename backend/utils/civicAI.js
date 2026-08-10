@@ -57,7 +57,7 @@ function cosineSimilarity(a, b) {
 // aren't silently excluded from dedup.
 const SEMANTIC_DUPLICATE_THRESHOLD = 0.86;
 
-function bestSemanticMatch(newEmbedding, candidates) {
+function bestSemanticMatch(newEmbedding, candidates, threshold = SEMANTIC_DUPLICATE_THRESHOLD) {
   if (!Array.isArray(newEmbedding) || !newEmbedding.length) return null;
   let best = null, bestScore = 0;
   for (const c of candidates) {
@@ -65,8 +65,14 @@ function bestSemanticMatch(newEmbedding, candidates) {
     const score = cosineSimilarity(newEmbedding, c.embedding);
     if (score > bestScore) { bestScore = score; best = c; }
   }
-  return bestScore >= SEMANTIC_DUPLICATE_THRESHOLD ? best : null;
+  return bestScore >= threshold ? best : null;
 }
+
+// A citizen describing the same physical problem often picks a different
+// category than the next person ("Other" vs "Flood / Waterlogging" for the
+// same waterlogged road) — so a cross-category match needs stronger evidence
+// than a same-category one before we merge two reports together.
+const CROSS_CATEGORY_DUPLICATE_THRESHOLD = 0.92;
 
 // ---- Free-text categorization + translation --------------------------------
 
@@ -132,5 +138,6 @@ module.exports = {
   bestSemanticMatch,
   classifyFreeText,
   SEMANTIC_DUPLICATE_THRESHOLD,
+  CROSS_CATEGORY_DUPLICATE_THRESHOLD,
   VALID_CATEGORIES,
 };
