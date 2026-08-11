@@ -26,6 +26,10 @@ const userSchema = new mongoose.Schema({
   // Lets admins/analysts trace a report back to a verified identity if it's
   // ever flagged as fake.
   citizenshipDoc:     { type: String, default: '' }, // base64 data URL of the uploaded ID image/PDF
+  selfiePhoto:        { type: String, default: '' }, // base64 selfie image for face match
+  selfiePhotoName:    { type: String, default: '' },
+  faceMatchScore: { type: Number, default: null }, // similarity score, 0 to 1 
+  faceVerifiedAt: { type: Date, default: null },
   citizenshipDocName: { type: String, default: '' },
   verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected', 'n/a'], default: 'n/a' },
   wardRepresentativeApplication: {
@@ -68,9 +72,10 @@ userSchema.methods.toPublic = function () {
     phone: this.phone,
     verificationStatus: this.verificationStatus,
     hasCitizenshipDoc: !!this.citizenshipDoc,
+    faceMatchScore: this.faceMatchScore,
+    faceVerifiedAt: this.faceVerifiedAt,
     wardRepresentativeApplication: this.wardRepresentativeApplication,
     createdAt: this.createdAt,
   };
 };
-
 module.exports = mongoose.model('User', userSchema);
