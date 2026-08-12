@@ -76,7 +76,7 @@ router.post('/login', async (req, res) => {
           email: normalizedEmail,
           password,
           role: demoRole,
-          organization: 'Civicà¤¦à¥ƒà¤·à¥à¤Ÿà¤¿',
+          organization: 'Civicदृष्टि',
         });
         await seedForUser(user._id);
       }
