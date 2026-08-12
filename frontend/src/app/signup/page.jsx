@@ -7,6 +7,9 @@ import styles from '@/styles/civicAuth.module.css';
 import { Eye, EyeOff, FileCheck2, Loader2, MapPinned, ShieldCheck, UploadCloud, UserRoundCheck, X } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import SelfieCapture from '@/components/SelfieCapture';
+import { loadFaceModels, getFaceDescriptor, compareDescriptors, loadImageFromDataUrl } from '@/lib/faceMatch';
+import { Camera, CheckCircle2 } from 'lucide-react';
 
 const ROLE_CARDS = [
   { value: 'researcher', title: 'Citizen', copy: 'Report ward issues and follow budget work until it is closed.' },
@@ -21,6 +24,10 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [docFile, setDocFile] = useState(null);
   const [docError, setDocError] = useState('');
+  const [selfieDataUrl, setSelfieDataUrl] = useState(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [faceChecking, setFaceChecking] = useState(false);
+  const [faceError, setFaceError] = useState('');
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm({ defaultValues: { name: '', email: '', password: '', confirmPassword: '', role: 'researcher', province: '', district: '', municipality: '', ward: '', applicationDetails: '' } });
   const role = watch('role');
 
@@ -36,9 +43,35 @@ export default function SignupPage() {
 
   const onSubmit = async (values) => {
     setError('');
+    setFaceError('');
     if (['researcher', 'ward_rep'].includes(values.role) && !docFile) { setDocError('Citizenship certificate or national ID is required for citizen reporting.'); return; }
+    if (['researcher', 'ward_rep'].includes(values.role) && !selfieDataUrl) { setFaceError('Please take a live selfie to verify your identity.'); return; }
+
+    // If a selfie was captured, run the face match before creating the account.
+    if (selfieDataUrl && docFile?.dataUrl) {
+      setFaceChecking(true);
+      try {
+        await loadFaceModels();
+        const idImg = await loadImageFromDataUrl(docFile.dataUrl);
+        const selfieImg = await loadImageFromDataUrl(selfieDataUrl);
+        const idDescriptor = await getFaceDescriptor(idImg);
+        const selfieDescriptor = await getFaceDescriptor(selfieImg);
+
+        if (!idDescriptor) { setFaceError('No face detected on your ID photo. Please upload a clearer photo.'); setFaceChecking(false); return; }
+        if (!selfieDescriptor) { setFaceError('No face detected in your selfie. Please try again.'); setFaceChecking(false); return; }
+
+        const distance = compareDescriptors(idDescriptor, selfieDescriptor);
+        if (distance > 0.6) { setFaceError("Your live photo doesn't match your ID. Please try again."); setFaceChecking(false); return; }
+      } catch (err) {
+        setFaceError('Could not verify your face. Please try again.');
+        setFaceChecking(false);
+        return;
+      }
+      setFaceChecking(false);
+    }
+
     const organization = [values.municipality, values.ward ? `Ward ${values.ward}` : '', values.district].filter(Boolean).join(', ') || 'Civicदृष्टि';
-    try { await signup({ ...values, organization, citizenshipDoc: docFile?.dataUrl || '', citizenshipDocName: docFile?.name || '' }); toast.success(values.role === 'ward_rep' ? 'Ward Representative request sent. Wait for admin approval before logging in.' : 'Account created. Welcome to Civicदृष्टि.'); }
+    try { await signup({ ...values, organization, citizenshipDoc: docFile?.dataUrl || '', citizenshipDocName: docFile?.name || '', selfiePhoto: selfieDataUrl || '' }); toast.success(values.role === 'ward_rep' ? 'Ward Representative request sent. Wait for admin approval before logging in.' : 'Account created. Welcome to Civicदृष्टि.'); }
     catch (err) { setError(err.message); }
   };
 
@@ -63,6 +96,29 @@ export default function SignupPage() {
           <div><label className={styles.label}>Confirm password <span className={styles.labelNp}>पासवर्ड पुष्टि</span></label><input type="password" className={`${styles.input} ${errors.confirmPassword ? styles.inputError : ''}`} placeholder="Re-enter password" {...register('confirmPassword', { validate: v => v === watch('password') || "Passwords don't match" })} />{errors.confirmPassword && <span className={styles.errMsg}>{errors.confirmPassword.message}</span>}</div>
         </div>
         <div><label className={styles.label} style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '14px 0 6px' }}><ShieldCheck className="h-4 w-4" style={{ color: 'var(--sindoor)' }} />Citizenship certificate / national ID</label>{!docFile ? <label className={styles.uploadBox}><UploadCloud className="h-5 w-5" style={{ color: 'var(--ink-soft)' }} /><span className={styles.uploadBoxText}>Upload image or PDF, max 8MB</span><input type="file" accept="image/*,application/pdf" onChange={handleDocChange} style={{ display: 'none' }} /></label> : <div className={styles.uploadedRow}><span className={styles.uploadedName}><FileCheck2 className="h-4 w-4" style={{ flexShrink: 0 }} /><span>{docFile.name}</span></span><button type="button" onClick={() => setDocFile(null)} className={styles.uploadedRemoveBtn}><X className="h-4 w-4" /></button></div>}{docError && <span className={styles.errMsg}>{docError}</span>}</div>
+        <div style={{ margin: '14px 0 6px' }}>
+          <label className={styles.label} style={{ display: 'flex', alignItems: 'center', gap: 7, margin: '0 0 6px' }}><Camera className="h-4 w-4" style={{ color: 'var(--sindoor)' }} />Live selfie verification</label>
+          {!selfieDataUrl ? (
+            <button type="button" onClick={() => setShowCamera(true)} className={styles.uploadBox} style={{ width: '100%' }}>
+              <Camera className="h-5 w-5" style={{ color: 'var(--ink-soft)' }} />
+              <span className={styles.uploadBoxText}>Click to take a live photo</span>
+            </button>
+          ) : (
+            <div className={styles.uploadedRow}>
+              <span className={styles.uploadedName}><CheckCircle2 className="h-4 w-4" style={{ flexShrink: 0, color: '#0f3d3e' }} /><span>Selfie captured</span></span>
+              <button type="button" onClick={() => setSelfieDataUrl(null)} className={styles.uploadedRemoveBtn}><X className="h-4 w-4" /></button>
+            </div>
+          )}
+          {faceError && <span className={styles.errMsg}>{faceError}</span>}
+          {faceChecking && <span className={styles.errMsg} style={{ color: 'var(--ink-soft)' }}>Verifying your face, please wait…</span>}
+        </div>
+
+        {showCamera && (
+          <SelfieCapture
+            onCapture={(dataUrl) => { setSelfieDataUrl(dataUrl); setShowCamera(false); }}
+            onClose={() => setShowCamera(false)}
+          />
+        )}
         <button type="submit" disabled={isSubmitting} className={styles.btn}>{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}Create account</button>
       </form>
       <div className={styles.footNote}>Already have an account? <Link href="/login">Log in</Link></div>

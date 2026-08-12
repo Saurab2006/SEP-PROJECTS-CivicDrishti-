@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema({
   selfiePhotoName:    { type: String, default: '' },
   faceMatchScore: { type: Number, default: null }, // similarity score, 0 to 1 
   faceVerifiedAt: { type: Date, default: null },
+  faceDescriptor:     { type: [Number], default: undefined }, // face fingerprint, ~128 numbers, used to detect duplicate signups
   citizenshipDocName: { type: String, default: '' },
   verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected', 'n/a'], default: 'n/a' },
   wardRepresentativeApplication: {
