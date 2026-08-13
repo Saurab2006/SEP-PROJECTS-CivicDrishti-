@@ -112,14 +112,6 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(422).json({ error: 'Email and password are required' });
     let user = await store.findUserByEmail(email.toLowerCase().trim());
-    // Auto-provision demo accounts
-    if (!user && email.endsWith('@govinsight.np')) {
-      const roleMap = { 'admin@govinsight.np': 'admin', 'analyst@govinsight.np': 'analyst', 'researcher@govinsight.np': 'researcher' };
-      const names = { 'admin@govinsight.np': 'Saurabh', 'analyst@govinsight.np': 'Raja', 'researcher@govinsight.np': 'Anup' };
-      const demoRole = roleMap[email] || 'analyst';
-      user = await store.createUser({ name: names[email] || 'Demo User', email, password: password, role: demoRole, organization: 'Civicदृष्टि' });
-      store.seedForUser(user._id);
-    }
     if (!user) return res.status(401).json({ error: 'Incorrect email or password' });
     const valid = await store.comparePassword(user, password);
     if (!valid) return res.status(401).json({ error: 'Incorrect email or password' });

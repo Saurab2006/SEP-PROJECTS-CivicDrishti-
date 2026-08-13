@@ -63,25 +63,6 @@ router.post('/login', async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     let user = await User.findOne({ email: normalizedEmail });
 
-    // Auto-provision demo accounts (mirrors the in-memory store's behavior)
-    // so the "Admin/Analyst/Researcher Demo" buttons work whether or not
-    // MongoDB is connected.
-    if (!user && normalizedEmail.endsWith('@govinsight.np')) {
-      const roleMap = { 'admin@govinsight.np': 'admin', 'analyst@govinsight.np': 'analyst', 'researcher@govinsight.np': 'researcher' };
-      const names = { 'admin@govinsight.np': 'Saurabh', 'analyst@govinsight.np': 'Panas', 'researcher@govinsight.np': 'Sakshi' };
-      const demoRole = roleMap[normalizedEmail];
-      if (demoRole) {
-        user = await User.create({
-          name: names[normalizedEmail],
-          email: normalizedEmail,
-          password,
-          role: demoRole,
-          organization: 'Civicदृष्टि',
-        });
-        await seedForUser(user._id);
-      }
-    }
-
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ error: 'Incorrect email or password' });
     }

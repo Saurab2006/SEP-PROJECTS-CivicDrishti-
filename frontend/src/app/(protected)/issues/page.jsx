@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import MapPicker from '@/components/MapPicker';
+import IssuesMap from '@/components/IssuesMap';
 
 const STATUS_STYLE = {
   pending: 'bg-amber-50 text-amber-700 border-amber-100',
@@ -34,6 +35,8 @@ export default function IssuesPage() {
   const { user } = useAuth();
   const isStaff = user?.role === 'admin' || user?.role === 'analyst';
   const isResearcher = user?.role === 'researcher';
+  const showMap = user?.role === 'admin' || user?.role === 'analyst' || user?.role === 'ward_rep';
+  const [selectedId, setSelectedId] = useState(null);
 
   const [meta, setMeta] = useState({ categories: [], authorities: [] });
   const [stats, setStats] = useState(null);
@@ -101,6 +104,16 @@ export default function IssuesPage() {
         )}
       </div>
 
+      {showMap && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-900">Issue map</h2>
+            <p className="text-xs text-gray-400">Click a pin, or hover a card below, to line them up</p>
+          </div>
+          <IssuesMap reports={reports} selectedId={selectedId} onSelect={setSelectedId} />
+        </div>
+      )}
+
       {loading ? (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="shimmer h-[180px] rounded-2xl" />)}</div>
       ) : reports.length === 0 ? (
@@ -111,7 +124,16 @@ export default function IssuesPage() {
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {reports.map(r => (
-            <Link key={r._id} href={`/issues/${r._id}`} className="group bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:border-gray-200 hover:shadow-md transition-all flex flex-col">
+            <Link
+              key={r._id}
+              href={`/issues/${r._id}`}
+              onMouseEnter={() => showMap && setSelectedId(r._id)}
+              onMouseLeave={() => showMap && setSelectedId(null)}
+              className={cn(
+                'group bg-white rounded-2xl border p-5 shadow-sm hover:border-gray-200 hover:shadow-md transition-all flex flex-col',
+                showMap && selectedId === r._id ? 'border-brand-300 ring-2 ring-brand-100' : 'border-gray-100'
+              )}
+            >
               <div className="flex items-start justify-between gap-2">
                 <StatusBadge status={r.status} />
                 <span className={cn('text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md', SEVERITY_STYLE[r.severity])}>{r.severity}</span>
