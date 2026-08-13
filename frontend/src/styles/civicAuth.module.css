@@ -77,8 +77,7 @@
 .uploadedName { display: flex; min-width: 0; align-items: center; gap: 8px; color: #247345; font-size: 12px; font-weight: 900; }
 .uploadedName span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .uploadedRemoveBtn { border: 0; background: transparent; color: #247345; cursor: pointer; padding: 3px; }
-@media (max-width: 980px) { .authShell { height: auto; grid-template-columns: 1fr; overflow: visible; } .sidePanel { height: auto; min-height: 420px; } .sidePanelContent { height: auto; min-height: 420px; padding: 32px; } .formPanel { height: auto; overflow-y: visible; } }
-@media (max-width: 620px) {
+@media (max-width: 980px) { .authShell { height: auto; grid-template-columns: 1fr; overflow: visible; } .sidePanel { height: auto; min-height: 420px; } .sidePanelContent { height: auto; min-height: 420px; padding: 32px; } .formPanel { height: auto; overflow-y: visible; } }@media (max-width: 620px) {
   .formPanel { padding: 14px; }
   .formPanelInner { padding: 18px; }
   .sidePanel { display: none; }
@@ -103,3 +102,31 @@
   .footNote { margin-top: 12px; font-size: 12px; }
   .checkboxRow { margin-top: 10px; }
 }
+/* ---------- Night mode ---------- */
+/* Overriding the CSS variables covers most of the file automatically,
+   since nearly every rule above already references var(--paper)/var(--ink)/etc.
+   Only literal (non-variable) colors need explicit dark rules below. */
+:global(html.dark) .shell {
+  --sindoor: #ff5c7a;
+  --sindoor-dark: #ff8095;
+  --green: #35d0a1;
+  --ink: #e7e9ee;
+  --ink-soft: #a7b0c4;
+  --muted: #8b93a8;
+  --paper: #0b1220;
+  --cream: #121a2b;
+  --line: #232c40;
+}
+:global(html.dark) .brandWordmarkLg { color: #f4f5f8; }
+:global(html.dark) .quoteEn { color: #c3cadb; }
+:global(html.dark) .statStrip div { color: #9aa4bd; }
+:global(html.dark) .statStrip strong { color: #f4f5f8; }
+:global(html.dark) .input { background: #0f1729; color: var(--ink); }
+:global(html.dark) .input::placeholder { color: #5c6784; }
+:global(html.dark) .errorBox { border-color: #4a1f2c; background: #24121a; }
+:global(html.dark) .formPanelInner { background: rgba(15, 23, 41, .82); box-shadow: 0 18px 60px rgba(0,0,0,.4); }
+:global(html.dark) .imageWash { background: linear-gradient(90deg, rgba(11,18,32,.92), rgba(11,18,32,.72) 45%, rgba(11,18,32,.55)), linear-gradient(0deg, rgba(11,18,32,.94), rgba(11,18,32,.16) 55%, rgba(11,18,32,.82)); }
+:global(html.dark) .tierTabActive { background: #10261f; }
+:global(html.dark) .roleCardActive { background: #10261f; }
+:global(html.dark) .uploadedRow { border-color: #1e3f30; background: #0f2119; }
+:global(html.dark) .uploadedName, :global(html.dark) .uploadedRemoveBtn { color: #4fd695; }

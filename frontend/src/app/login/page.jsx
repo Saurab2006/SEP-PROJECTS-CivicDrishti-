@@ -54,8 +54,6 @@ export default function LoginPage() {
     setResetBusy(false);
   };
 
-  const demoFill = (email, pass) => { setMode('login'); setValue('email', email); setValue('password', pass); };
-
   return (
     <CivicAuthShell activeTab="login">
       {mode === 'login' ? (
@@ -79,8 +77,6 @@ export default function LoginPage() {
             </div>
             <button type="submit" disabled={isSubmitting} className={styles.btn}>{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <LockKeyhole className="h-4 w-4" />}Log in</button>
           </form>
-          <div className={styles.divider}>Quick demo access</div>
-          <div className={styles.demoGrid}>{[['Admin','admin@govinsight.np','admin123'],['Officer','analyst@govinsight.np','analyst123'],['Citizen','researcher@govinsight.np','researcher123']].map(([label,email,pass]) => <button key={label} type="button" onClick={() => demoFill(email, pass)} className={styles.demoChip}>{label}</button>)}</div>
           <div className={styles.footNote}>No account? <Link href="/signup">Join Civicदृष्टि</Link></div>
         </>
       ) : (
