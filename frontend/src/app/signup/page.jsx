@@ -13,7 +13,6 @@ import { Camera, CheckCircle2 } from 'lucide-react';
 
 const ROLE_CARDS = [
   { value: 'researcher', title: 'Citizen', copy: 'Report ward issues and follow budget work until it is closed.' },
-  { value: 'analyst', title: 'Local body staff', copy: 'Review reports, update budgets, and keep citizens informed.' },
   { value: 'ward_rep', title: 'Ward Representative', copy: 'Request approval to manage and view only your assigned ward.' },
 ];
 function fileToDataUrl(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('Could not read the file')); reader.readAsDataURL(file); }); }
@@ -78,7 +77,7 @@ export default function SignupPage() {
   return (
     <CivicAuthShell activeTab="signup">
       <h1 className={styles.pageTitle}>Create your account</h1>
-      <p className={styles.pageSub}>Join as a citizen or local body staff to report issues and follow public budgets.</p>
+      <p className={styles.pageSub}>Join as a citizen or ward representative to report issues and follow public budgets.</p>
       {error && <div className={styles.errorBox}>{error}</div>}
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className={styles.rowTwo}>
