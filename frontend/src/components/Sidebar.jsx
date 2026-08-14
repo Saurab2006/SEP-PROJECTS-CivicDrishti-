@@ -1,7 +1,7 @@
 ﻿'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ClipboardList, FileText, Gauge, Landmark, LogOut, MapPinned, Settings, Table2, Users } from 'lucide-react';
+import { ClipboardList, Gauge, Landmark, LogOut, MapPinned, Settings, Table2, Users } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { cn, initials } from '@/lib/format';
@@ -20,7 +20,7 @@ const GROUPS = [
     key: 'nav.accountability',
     items: [
       { href: '/authorities', key: 'nav.authorities', note: 'nav.authoritiesNote', icon: Landmark },
-      { href: '/reports', key: 'nav.reports', note: 'nav.briefsNote', icon: FileText },
+    
     ],
   },
 ];

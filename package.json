@@ -17,6 +17,7 @@
     "concurrently": "^10.0.4"
   },
   "dependencies": {
+    "face-api.js": "^0.22.2",
     "maplibre-gl": "^6.2.0"
   }
 }
