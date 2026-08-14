@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
   name:         { type: String, required: true, trim: true },
   email:        { type: String, required: true, unique: true, lowercase: true, trim: true },
   password:     { type: String, required: true, minlength: 6 },
-  role: { type: String, enum: ['admin', 'researcher', 'ward_rep'], default: 'researcher' },
+  role: { type: String, enum: ['admin', 'researcher', 'ward_rep', 'municipality_head'], default: 'researcher' },
   organization: { type: String, default: 'Independent' },
   jobTitle:     { type: String, default: 'Citizen' },
   avatarHue:    { type: Number, default: randomAvatarHue },
@@ -22,6 +22,15 @@ const userSchema = new mongoose.Schema({
   // message can't carry a JWT ” the phone number is the identity.
   phone:        { type: String, default: '', trim: true },
 
+  civicLocation: {
+    province: { type: String, default: '', trim: true },
+    district: { type: String, default: '', trim: true },
+    municipality: { type: String, default: '', trim: true },
+    municipalityType: { type: String, enum: ['', 'municipality', 'rural_municipality', 'metropolitan', 'sub_metropolitan'], default: '' },
+    ward: { type: String, default: '', trim: true },
+    address: { type: String, default: '', trim: true },
+  },
+
   // Identity verification (required at signup for researcher/citizen accounts).
   // Lets admins/analysts trace a report back to a verified identity if it's
   // ever flagged as fake.
@@ -33,6 +42,15 @@ const userSchema = new mongoose.Schema({
   faceDescriptor:     { type: [Number], default: undefined }, // face fingerprint, ~128 numbers, used to detect duplicate signups
   citizenshipDocName: { type: String, default: '' },
   verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected', 'n/a'], default: 'n/a' },
+  municipalityHeadProfile: {
+    province: { type: String, default: '', trim: true },
+    district: { type: String, default: '', trim: true },
+    municipality: { type: String, default: '', trim: true },
+    municipalityType: { type: String, enum: ['', 'municipality', 'rural_municipality', 'metropolitan', 'sub_metropolitan'], default: '' },
+    officePhone: { type: String, default: '', trim: true },
+    officeAddress: { type: String, default: '', trim: true },
+    assignedAt: { type: Date, default: null },
+  },
   wardRepresentativeApplication: {
     requested: { type: Boolean, default: false },
     status: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
@@ -49,6 +67,8 @@ const userSchema = new mongoose.Schema({
 
 userSchema.index({ role: 1, status: 1 });
 userSchema.index({ phone: 1 });
+userSchema.index({ 'civicLocation.province': 1, 'civicLocation.district': 1, 'civicLocation.municipality': 1, 'civicLocation.ward': 1 });
+userSchema.index({ 'municipalityHeadProfile.district': 1, 'municipalityHeadProfile.municipality': 1 });
 
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
@@ -71,6 +91,8 @@ userSchema.methods.toPublic = function () {
     status: this.status,
     emailVerified: this.emailVerified,
     phone: this.phone,
+    civicLocation: this.civicLocation,
+    municipalityHeadProfile: this.municipalityHeadProfile,
     verificationStatus: this.verificationStatus,
     hasCitizenshipDoc: !!this.citizenshipDoc,
     faceMatchScore: this.faceMatchScore,

@@ -48,7 +48,7 @@ export default function ReportDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const isStaff = user?.role === 'admin' || user?.role === 'analyst' || user?.role === 'ward_rep';
+  const isStaff = user?.role === 'admin' || user?.role === 'municipality_head' || user?.role === 'ward_rep';
 
   const [report, setReport] = useState(null);
   const [meta, setMeta] = useState({ categories: [], authorities: [] });
@@ -118,7 +118,7 @@ export default function ReportDetailPage() {
   const toggleSupport = async () => {
     setCommunityBusy(true);
     try {
-      const { report: updated } = await post(`/api/reports/${id}/upvote`, {});
+      const { report: updated } = await post(`/api/reports/${id}/support`, {});
       setReport(prev => ({ ...updated, duplicates: prev?.duplicates || [] }));
     } catch (err) { toast.error(err.message); }
     setCommunityBusy(false);
@@ -453,8 +453,8 @@ function CommunityCard({ report, commentText, setCommentText, busy, onSupport, o
           <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><MessageCircle className="w-4 h-4 text-brand-500" />Community signal</h3>
           <p className="mt-1 text-xs text-gray-500">Citizens can support the report and add public context.</p>
         </div>
-        <button disabled={busy} onClick={onSupport} className={cn('inline-flex h-10 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors disabled:opacity-60', report.hasUpvoted ? 'bg-brand-500 text-white hover:bg-brand-600' : 'bg-brand-50 text-brand-700 hover:bg-brand-100')}>
-          <ThumbsUp className="w-4 h-4" />{report.hasUpvoted ? 'Supported' : 'Support'} · {report.upvoteCount || 0}
+        <button disabled={busy} onClick={onSupport} className={cn('inline-flex h-10 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors disabled:opacity-60', report.hasSupported ? 'bg-brand-500 text-white hover:bg-brand-600' : 'bg-brand-50 text-brand-700 hover:bg-brand-100')}>
+          <ThumbsUp className="w-4 h-4" />{report.hasSupported ? 'Supported' : 'Support'} · {report.supportCount || 0}
         </button>
       </div>
 
