@@ -28,14 +28,15 @@ const SEVERITY_STYLE = {
 const STATUS_FILTERS = ['all', 'pending', 'verified', 'assigned', 'in-progress', 'completed', 'rejected', 'duplicate'];
 
 function StatusBadge({ status }) {
-  return <span className={cn('text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md border', STATUS_STYLE[status] || STATUS_STYLE.pending)}>{status.replace('-', ' ')}</span>;
+  const label = status === 'completed' ? 'resolved' : String(status || 'pending').replace('-', ' ');
+  return <span className={cn('text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md border', STATUS_STYLE[status] || STATUS_STYLE.pending)}>{label}</span>;
 }
 
 export default function IssuesPage() {
   const { user } = useAuth();
-  const isStaff = user?.role === 'admin' || user?.role === 'analyst';
+  const isStaff = user?.role === 'admin' || user?.role === 'municipality_head';
   const isResearcher = user?.role === 'researcher';
-  const showMap = user?.role === 'admin' || user?.role === 'analyst' || user?.role === 'ward_rep';
+  const showMap = user?.role === 'admin' || user?.role === 'municipality_head' || user?.role === 'ward_rep';
   const [selectedId, setSelectedId] = useState(null);
 
   const [meta, setMeta] = useState({ categories: [], authorities: [] });
@@ -73,7 +74,7 @@ export default function IssuesPage() {
         </div>
         {isResearcher && (
           <button onClick={() => setShowForm(true)} className="h-10 px-4 rounded-xl bg-brand-500 text-white text-sm font-semibold hover:bg-brand-600 active:translate-y-px transition-all flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Report an Issue
+            <Plus className="w-4 h-4" /> Report an issue
           </button>
         )}
       </div>
@@ -83,14 +84,14 @@ export default function IssuesPage() {
           <StatCard label="Total" value={stats.total} />
           <StatCard label="Pending Review" value={stats.pending} accent="text-amber-600" />
           <StatCard label="Active" value={stats.active} accent="text-blue-600" />
-          <StatCard label="Completed" value={stats.completed} accent="text-emerald-600" />
+          <StatCard label="Resolved" value={stats.completed} accent="text-emerald-600" />
           <StatCard label="Flagged / Fake" value={stats.flagged} accent="text-red-600" />
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-2">
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="h-9 px-3 rounded-lg border border-gray-200 bg-white text-xs font-medium outline-none focus:border-brand-500">
-          {STATUS_FILTERS.map(s => <option key={s} value={s}>{s === 'all' ? 'All statuses' : s.replace('-', ' ')}</option>)}
+          {STATUS_FILTERS.map(s => <option key={s} value={s}>{s === 'all' ? 'All statuses' : (s === 'completed' ? 'resolved' : s.replace('-', ' '))}</option>)}
         </select>
         <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="h-9 px-3 rounded-lg border border-gray-200 bg-white text-xs font-medium outline-none focus:border-brand-500">
           <option value="all">All categories</option>
@@ -188,10 +189,10 @@ function fileToDataUrl(file) {
   });
 }
 const SEVERITIES = [
-  { value: 'low', label: 'Low — minor inconvenience' },
-  { value: 'medium', label: 'Medium — needs attention soon' },
-  { value: 'high', label: 'High — actively disruptive' },
-  { value: 'critical', label: 'Critical — danger to safety' },
+  { value: 'low', label: 'Low - minor inconvenience' },
+  { value: 'medium', label: 'Medium - needs attention soon' },
+  { value: 'high', label: 'High - actively disruptive' },
+  { value: 'critical', label: 'Critical - danger to safety' },
 ];
 
 const MAX_PHOTOS = 5;
@@ -224,7 +225,7 @@ function ReportForm({ meta, onClose, onCreated }) {
   const submit = async (e) => {
     e.preventDefault();
     if (!form.title.trim() || !form.description.trim()) { toast.error('Title and description are required'); return; }
-    if (!form.reporterContact.trim()) { toast.error('Please add a contact number — it\'s required so authorities can reach you'); return; }
+    if (!form.reporterContact.trim()) { toast.error("Please add a contact number - it is required so authorities can reach you"); return; }
     if (!coords) { toast.error('Please select a location on the map'); return; }
     setSubmitting(true);
     try {
@@ -238,7 +239,7 @@ function ReportForm({ meta, onClose, onCreated }) {
       if (report.duplicateOfTitle) {
         toast.success(`Linked to an existing report: "${report.duplicateOfTitle}". You'll be notified when it's resolved.`);
       } else {
-        toast.success(`Reported — AI estimates ${report.estimatedDays} day(s) to resolve`);
+        toast.success(`Reported - AI estimates ${report.estimatedDays} day(s) to resolve`);
       }
       onCreated();
     } catch (err) { toast.error(err.message); }
@@ -249,11 +250,11 @@ function ReportForm({ meta, onClose, onCreated }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-brand-500" />Report an Issue</h3>
+          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-brand-500" />Report an issue</h3>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-50"><X className="w-4 h-4" /></button>
         </div>
         <div className="p-5 space-y-5">
-          <p className="text-xs leading-5 text-gray-500">Your report is checked against nearby issues. If others reported the same problem, you'll join their issue to raise its community impact — and you still get your own tracking ID.</p>
+          <p className="text-xs leading-5 text-gray-500">Your report is checked against nearby issues. If others reported the same problem, you'll join their issue to raise its community impact - and you still get your own tracking ID.</p>
 
           <Field label="Title">
             <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Large pothole near Bhrikuti Chowk" className="input" />
@@ -334,3 +335,5 @@ function ReportForm({ meta, onClose, onCreated }) {
 function Field({ label, children }) {
   return <label className="block"><span className="block text-xs font-semibold text-gray-700 mb-1">{label}</span>{children}</label>;
 }
+
+

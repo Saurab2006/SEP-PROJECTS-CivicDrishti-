@@ -155,21 +155,21 @@ router.get('/changes', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/changes', protect, requireRole('analyst', 'ward_rep'), async (req, res) => {
+router.post('/changes', protect, requireRole('official', 'ward_rep'), async (req, res) => {
   try {
     let { title, department, sector, amount, fiscalYear, district, municipality, ward, reason } = req.body;
     if (req.user.role === 'ward_rep') { const a = req.user.wardRepresentativeApplication || {}; district = a.district || district; municipality = a.municipality || municipality; ward = a.ward || ward; }
     if (!title || !department || !sector || !fiscalYear) return res.status(422).json({ error: 'Title, department, sector, and fiscal year are required' });
     const amountNum = Number(amount);
     if (!Number.isFinite(amountNum) || amountNum < 0) return res.status(422).json({ error: 'Amount must be a valid positive number' });
-    const doc = await Document.create({ user: req.user._id, title: `Proposed record - ${title}`, fileName: 'manual-entry', docType: 'budget', fiscalYear, district: district || '', municipality: municipality || '', totalBudget: amountNum, summary: 'Manual budget record proposed by analyst.' });
+    const doc = await Document.create({ user: req.user._id, title: `Proposed record - ${title}`, fileName: 'manual-entry', docType: 'budget', fiscalYear, district: district || '', municipality: municipality || '', totalBudget: amountNum, summary: 'Manual budget record proposed by official.' });
     const change = await ChangeRequest.create({ user: req.user._id, budgetItem: null, type: 'create', requestedBy: req.user._id, reason: reason || '', proposed: { title, department, sector, amount: amountNum, fiscalYear, district: district || '', municipality: municipality || '', ward: ward || '', document: doc._id } });
     await Activity.create({ user: req.user._id, type: 'change-request', message: `Proposed a new budget record: "${title}"` });
     res.status(201).json({ change });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/:id/changes', protect, requireRole('analyst', 'ward_rep'), async (req, res) => {
+router.post('/:id/changes', protect, requireRole('official', 'ward_rep'), async (req, res) => {
   try {
     const budgetFilter = req.user.role === 'ward_rep' ? { _id: req.params.id, district: req.user.wardRepresentativeApplication?.district || '__none__', ward: String(req.user.wardRepresentativeApplication?.ward || '__none__') } : { _id: req.params.id, user: req.user._id };
     const budgetItem = await BudgetItem.findOne(budgetFilter);

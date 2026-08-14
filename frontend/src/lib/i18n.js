@@ -17,6 +17,8 @@ export const translations = {
     'nav.userManagement': 'User management',
     'nav.wards': 'Ward offices',
     'nav.settings': 'Settings',
+    'nav.municipalityHeads': 'Municipality heads',
+    'nav.municipalityDashboard': 'Municipality dashboard',
     'nav.menu': 'Menu',
     'nav.admin': 'Admin',
     'nav.civicWork': 'Civic work',
@@ -35,11 +37,11 @@ export const translations = {
 
     'role.admin': 'Admin',
     'role.citizen': 'Citizen',
-    'role.analyst': 'Local body staff',
+    'role.municipalityHead': 'Municipality head',
     'role.wardRep': 'Ward representative',
     'access.full': 'Full platform access',
     'access.wardOnly': 'Assigned ward only',
-    'access.staff': 'Review and update access',
+    'access.municipalityOnly': 'Assigned municipality only',
     'access.citizen': 'Citizen reporting access',
 
     'topbar.workspace': 'Civicदृष्टि workspace',
@@ -143,6 +145,8 @@ export const translations = {
     'nav.userManagement': 'प्रयोगकर्ता व्यवस्थापन',
     'nav.wards': 'वडा कार्यालयहरू',
     'nav.settings': 'सेटिङहरू',
+    'nav.municipalityHeads': 'पालिका प्रमुख',
+    'nav.municipalityDashboard': 'पालिका ड्यासबोर्ड',
     'nav.menu': 'मेनु',
     'nav.admin': 'प्रशासक',
     'nav.civicWork': 'नागरिक काम',
@@ -161,11 +165,11 @@ export const translations = {
 
     'role.admin': 'प्रशासक',
     'role.citizen': 'नागरिक',
-    'role.analyst': 'स्थानीय निकाय कर्मचारी',
+    'role.municipalityHead': 'नगर/गाउँपालिका प्रमुख',
     'role.wardRep': 'वडा प्रतिनिधि',
     'access.full': 'सम्पूर्ण पहुँच',
     'access.wardOnly': 'आफ्नो वडा मात्र',
-    'access.staff': 'समीक्षा र अद्यावधिक पहुँच',
+    'access.municipalityOnly': 'आफ्नो पालिका मात्र',
     'access.citizen': 'नागरिक रिपोर्ट पहुँच',
 
     'topbar.workspace': 'Civicदृष्टि कार्यक्षेत्र',
@@ -263,6 +267,7 @@ export const translations = {
 export function t(locale, key) {
   return translations[locale]?.[key] || translations.en[key] || key;
 }
+
 
 
 

@@ -12,6 +12,8 @@ import ThemeToggle from './ThemeToggle';
 const PAGE_KEYS = [
   ['/admin/wards', 'nav.wards'],
   ['/admin/users', 'nav.userManagement'],
+  ['/admin/municipality-heads', 'nav.municipalityHeads'],
+  ['/municipality/dashboard', 'nav.municipalityDashboard'],
   ['/dashboard', 'nav.dashboard'],
   ['/issues', 'nav.issues'],
   ['/budget', 'nav.budget'],
@@ -34,7 +36,7 @@ export default function Topbar() {
 
   const pageKey = PAGE_KEYS.find(([href]) => pathname === href || pathname.startsWith(href + '/'))?.[1] || 'dashboard.title';
   const pageTitle = t(pageKey);
-  const roleKey = user.role === 'admin' ? 'role.admin' : user.role === 'ward_rep' ? 'role.wardRep' : user.role === 'analyst' ? 'role.analyst' : 'role.citizen';
+  const roleKey = user.role === 'admin' ? 'role.admin' : user.role === 'ward_rep' ? 'role.wardRep' : user.role === 'municipality_head' ? 'role.municipalityHead' : 'role.citizen';
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--gov-border)] bg-white/95 backdrop-blur dark:bg-[#111827]/95">
@@ -90,3 +92,4 @@ export default function Topbar() {
     </header>
   );
 }
+

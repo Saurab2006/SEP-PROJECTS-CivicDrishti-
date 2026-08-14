@@ -18,7 +18,7 @@ router.post('/signup', async (req, res) => {
     if (exists) return res.status(409).json({ error: 'An account with this email already exists' });
 
     const isFirst = (await User.countDocuments()) === 0;
-    const finalRole = role === 'ward_rep' ? 'ward_rep' : (isFirst ? 'admin' : (['analyst', 'researcher'].includes(role) ? role : 'researcher'));
+    const finalRole = role === 'ward_rep' ? 'ward_rep' : (isFirst ? 'admin' : 'researcher');
 
     // Citizens signing up to submit community reports must verify their
     // identity with a citizenship document, so admins/analysts can trace a
@@ -34,6 +34,7 @@ router.post('/signup', async (req, res) => {
       password,
       role: finalRole,
       organization: organization || 'Independent',
+      civicLocation: { province: province || '', district: district || '', municipality: municipality || '', ward: ward || '' },
       citizenshipDoc: ['researcher', 'ward_rep'].includes(finalRole) ? citizenshipDoc : '',
       citizenshipDocName: ['researcher', 'ward_rep'].includes(finalRole) ? (citizenshipDocName || '') : '',
       status: finalRole === 'ward_rep' ? 'suspended' : 'active',

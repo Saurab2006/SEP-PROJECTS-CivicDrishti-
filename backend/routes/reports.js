@@ -3,9 +3,12 @@ const IncidentReport = require('../models/IncidentReport');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Authority = require('../models/Authority');
+const IssueSupport = require('../models/IssueSupport');
 const { protect } = require('../middleware/auth');
 const { embedText, bestSemanticMatch, classifyFreeText, looksNepali, CROSS_CATEGORY_DUPLICATE_THRESHOLD } = require('../utils/civicAI');
 const { sendSms } = require('../utils/sms');
+const { calculateIssuePriority } = require('../utils/issuePriority');
+const { notifyWardCitizens, notifyWardRepresentative, notifyMunicipalityHead, sameWardCitizenQuery } = require('../utils/issueNotifications');
 
 const router = express.Router();
 
@@ -44,9 +47,25 @@ function textOverlap(a, b) {
   return shared / Math.min(wa.size, wb.size);
 }
 function serializeReport(report, viewerId) {
-  const obj = typeof report.toObject === 'function' ? report.toObject() : report;
+  const obj = typeof report.toObject === "function" ? report.toObject() : report;
   const upvotes = (obj.upvotes || []).map(String);
-  return { ...obj, upvoteCount: upvotes.length, hasUpvoted: viewerId ? upvotes.includes(String(viewerId)) : false };
+  const supportCount = Number(obj.supportCount || upvotes.length || 0);
+  const hasSupported = viewerId ? upvotes.includes(String(viewerId)) : false;
+  return { ...obj, supportCount, hasSupported, upvoteCount: supportCount, hasUpvoted: hasSupported };
+}
+function wardRepScope(user) {
+  const a = user.wardRepresentativeApplication || {};
+  return { district: a.district || "__none__", municipality: a.municipality || "__none__", ward: String(a.ward || "__none__") };
+}
+function municipalityHeadScope(user) {
+  const a = user.municipalityHeadProfile || {};
+  return { district: a.district || "__none__", municipality: a.municipality || "__none__" };
+}
+function applyRoleScope(filter, user) {
+  if (user.role === "researcher") filter.reportedBy = user._id;
+  if (user.role === "ward_rep") { const a = wardRepScope(user); filter["location.district"] = a.district; filter["location.municipality"] = a.municipality; filter["location.ward"] = a.ward; }
+  if (user.role === "municipality_head") { const a = municipalityHeadScope(user); filter["location.district"] = a.district; filter["location.municipality"] = a.municipality; }
+  return filter;
 }
 
 // Two reports are "the same problem" when they share a category, sit in the
@@ -160,7 +179,10 @@ router.get('/', protect, async (req, res) => {
 router.post('/', protect, async (req, res) => {
   try {
     if (req.user.role !== 'researcher') return res.status(403).json({ error: 'Only researchers can submit a community report' });
-    const { title, category, description, severity, location, reporterContact, photo, photoName } = req.body;
+    const { title, category, description, severity, location: inputLocation, reporterContact, photo, photoName } = req.body;
+    const citizenLocation = req.user.civicLocation || {};
+    const location = { ...(inputLocation || {}) };
+    ["province", "district", "municipality", "ward"].forEach(key => { if (citizenLocation[key]) location[key] = String(citizenLocation[key]); });
     const spec = REPORT_CATEGORIES.find(c => c.value === category);
     if (!spec) return res.status(422).json({ error: 'Unknown category' });
     if (!title || !description || !location?.address) return res.status(422).json({ error: 'Title, description and address are required' });
@@ -196,23 +218,59 @@ router.post('/', protect, async (req, res) => {
       await dup.save();
       if (dup.assignedBy) await Notification.create({ user: dup.assignedBy, type: 'duplicate', title: 'Another report on an active issue', message: `"${dup.title}" now has ${dup.confirmations} citizen reports.`, link: `/issues/${dup._id}`, report: dup._id });
     } else {
-      await notifyRoles(['admin', 'analyst'], { type: 'new-report', title: 'New community report', message: `${title} - ${location.address}${location.district ? ', ' + location.district : ''}`, link: `/issues/${report._id}`, report: report._id });
+      await notifyRoles(['admin', 'municipality_head'], { type: 'new-report', title: 'New community report', message: `${title} - ${location.address}${location.district ? ', ' + location.district : ''}`, link: `/issues/${report._id}`, report: report._id });
+    }
+    const wardCitizens = await User.countDocuments(sameWardCitizenQuery(report));
+    const priority = calculateIssuePriority(report, report.supportCount || 1, wardCitizens);
+    report.priorityScore = priority.score;
+    report.priorityLevel = priority.level;
+    report.priorityReason = priority.reason;
+    await report.save();
+    if (!dup) {
+      await notifyWardCitizens(report, req.user._id);
+      await notifyWardRepresentative(report);
+      if (priority.escalated) await notifyMunicipalityHead(report, { type: "priority-escalated", title: "Priority issue in municipality", message: "\"" + report.title + "\" has been marked " + priority.level + " priority." });
     }
     res.status(201).json({ report: serializeReport(report, req.user._id) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/:id/upvote', protect, async (req, res) => {
+async function supportIssue(req, res) {
   try {
-    const report = await IncidentReport.findById(req.params.id).populate('comments.user', 'name role avatarHue');
-    if (!report) return res.status(404).json({ error: 'Report not found' });
-    const userId = String(req.user._id);
-    const existing = (report.upvotes || []).findIndex(id => String(id) === userId);
-    if (existing === -1) report.upvotes.push(req.user._id); else report.upvotes.splice(existing, 1);
+    if (req.user.role !== "researcher") return res.status(403).json({ error: "Only verified citizens can support a ward issue" });
+    if (req.user.status !== "active" || req.user.verificationStatus !== "verified") return res.status(403).json({ error: "Your identity must be verified before supporting a public issue" });
+    const report = await IncidentReport.findById(req.params.id).populate("comments.user", "name role avatarHue");
+    if (!report) return res.status(404).json({ error: "Report not found" });
+    const userLoc = req.user.civicLocation || {};
+    const issueLoc = report.location || {};
+    const sameWard = String(userLoc.district || "") === String(issueLoc.district || "") && String(userLoc.municipality || "") === String(issueLoc.municipality || "") && String(userLoc.ward || "") === String(issueLoc.ward || "");
+    if (!sameWard) return res.status(403).json({ error: "You can support only issues from your own municipality and ward" });
+    const existing = await IssueSupport.findOne({ issue: report._id, citizen: req.user._id });
+    if (existing) {
+      await existing.deleteOne();
+      report.upvotes = (report.upvotes || []).filter(id => String(id) !== String(req.user._id));
+    } else {
+      await IssueSupport.create({ issue: report._id, citizen: req.user._id, province: issueLoc.province || "", district: issueLoc.district || "", municipality: issueLoc.municipality || "", ward: String(issueLoc.ward || "") });
+      if (!(report.upvotes || []).some(id => String(id) === String(req.user._id))) report.upvotes.push(req.user._id);
+      await notifyWardRepresentative(report, { type: "issue-supported", title: "Citizen support added", message: "\"" + report.title + "\" received support from another verified ward citizen." });
+    }
+    report.supportCount = await IssueSupport.countDocuments({ issue: report._id });
+    const wardCitizens = await User.countDocuments(sameWardCitizenQuery(report));
+    const before = report.escalationState;
+    const priority = calculateIssuePriority(report, report.supportCount, wardCitizens);
+    report.priorityScore = priority.score; report.priorityLevel = priority.level; report.priorityReason = priority.reason;
+    if (priority.escalated && before !== "municipality-notified") {
+      report.escalationState = "municipality-notified";
+      report.supportThresholdReachedAt = report.supportThresholdReachedAt || new Date();
+      report.timeline.push({ action: "priority-escalated", note: priority.reason, by: req.user._id });
+      await notifyMunicipalityHead(report, { type: "priority-escalated", title: "Issue escalated by citizen support", message: "\"" + report.title + "\" reached priority threshold: " + priority.reason });
+    }
     await report.save();
     res.json({ report: serializeReport(report, req.user._id) });
   } catch (err) { res.status(500).json({ error: err.message }); }
-});
+}
+router.post("/:id/support", protect, supportIssue);
+router.post("/:id/upvote", protect, supportIssue);
 
 router.post('/:id/comments', protect, async (req, res) => {
   try {
@@ -241,7 +299,7 @@ router.post('/:id/reopen', protect, async (req, res) => {
     if (!report) return res.status(404).json({ error: 'Report not found' });
 
     const isOwner = String(report.reportedBy) === String(req.user._id);
-    const isStaff = ['admin', 'analyst', 'ward_rep'].includes(req.user.role);
+    const isStaff = ['admin', 'municipality_head', 'ward_rep'].includes(req.user.role);
     if (!isOwner && !isStaff) return res.status(403).json({ error: 'Only the reporter or staff can reopen this report' });
     if (report.status !== 'completed') return res.status(422).json({ error: 'Only a completed report can be reopened' });
 
@@ -259,7 +317,7 @@ router.post('/:id/reopen', protect, async (req, res) => {
     report.timeline.push({ action: 'reopened', note: reason, by: req.user._id });
     await report.save();
 
-    await notifyRoles(['admin', 'analyst'], {
+    await notifyRoles(['admin', 'municipality_head'], {
       type: 'reopened', title: 'A resolved report was reopened',
       message: `"${report.title}" was reopened: ${reason}`, link: `/issues/${report._id}`, report: report._id,
     });
@@ -283,7 +341,7 @@ router.get('/:id', protect, async (req, res) => {
 
 router.patch('/:id', protect, async (req, res) => {
   try {
-    if (!['admin', 'analyst', 'ward_rep'].includes(req.user.role)) return res.status(403).json({ error: 'Only analysts, admins, or ward representatives can manage reports' });
+    if (!['admin', 'municipality_head', 'ward_rep'].includes(req.user.role)) return res.status(403).json({ error: 'Only admins, municipality heads, or ward representatives can manage reports' });
     const report = await IncidentReport.findById(req.params.id);
     if (!report) return res.status(404).json({ error: 'Report not found' });
     const { action, ...payload } = req.body;
@@ -308,7 +366,7 @@ router.patch('/:id', protect, async (req, res) => {
       report.estimatedDays = days;
       report.dueDate = addDays(days);
       if (report.status === 'pending') report.status = 'verified';
-      report.timeline.push({ action: 'eta-updated', note: `Analyst revised the estimate to ${days} day(s)${payload.note ? ` - ${payload.note}` : ''}`, by: req.user._id });
+      report.timeline.push({ action: 'eta-updated', note: `Official revised the estimate to ${days} day(s)${payload.note ? ` - ${payload.note}` : ''}`, by: req.user._id });
       await notifyReporters(report, { type: 'eta-updated', title: 'Estimated completion updated', message: `"${report.title}" is now expected to be resolved in ${days} day(s).` });
     } else if (action === 'start') {
       report.status = 'in-progress';
@@ -319,7 +377,7 @@ router.patch('/:id', protect, async (req, res) => {
       report.status = 'completed';
       report.completedAt = new Date();
       if (payload.resolutionPhoto) { report.resolutionPhoto = payload.resolutionPhoto; report.resolutionPhotoName = payload.resolutionPhotoName || ''; }
-      report.timeline.push({ action: 'completed', note: payload.note || 'Marked complete by analyst', by: req.user._id });
+      report.timeline.push({ action: 'completed', note: payload.note || 'Marked complete by official', by: req.user._id });
       await notifyReporters(report, { type: 'completed', title: 'Issue resolved', message: `Good news - "${report.title}" has been marked complete.` });
       await notifyReportersSms(report, `Civicदृष्टि: Good news! Your report "${report.title.slice(0, 60)}" has been marked complete.`);
       await notifyRoles(['admin'], { type: 'completed', title: 'Report closed', message: `${req.user.name} closed "${report.title}".`, link: `/issues/${report._id}`, report: report._id });

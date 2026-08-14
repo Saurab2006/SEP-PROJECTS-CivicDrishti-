@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -15,7 +15,11 @@ const authorityRoutes = require('./routes/authorities');
 const noticeRoutes = require('./routes/notices');
 const wardRoutes = require('./routes/wards');
 const smsRoutes = require('./routes/sms');
+const municipalityRoutes = require('./routes/municipality');
+const municipalityListRoutes = require('./routes/municipalities');
+const municipalityHeadRoutes = require('./routes/municipalityHeads');
 const Authority = require('./models/Authority');
+const Notification = require('./models/Notification');
 const { parseInboundSms, helpText, sendSms, normalizePhone, VALID_CATEGORIES } = require('./utils/sms');
 const { classifyFreeText } = require('./utils/civicAI');
 const { code, hashCode, expires, validHash, welcomeEmail, otpEmail, resetEmail } = require('./utils/authEmails');
@@ -70,6 +74,9 @@ useMongoRoutes('/api/authorities', authorityRoutes);
 useMongoRoutes('/api/notices', noticeRoutes);
 useMongoRoutes('/api/wards', wardRoutes);
 useMongoRoutes('/api/sms', smsRoutes);
+useMongoRoutes('/api/municipality', municipalityRoutes);
+useMongoRoutes('/api/municipalities', municipalityListRoutes);
+useMongoRoutes('/api/municipality-heads', municipalityHeadRoutes);
 
 
 app.get('/api/notices/public-active', (req, res) => {
@@ -91,7 +98,7 @@ app.post('/api/auth/signup', async (req, res) => {
     const finalRole = role === 'ward_rep' ? 'ward_rep' : (isFirst ? 'admin' : 'researcher');
 
     // Citizens must verify identity with a citizenship document so
-    // admins/analysts can trace a report back to a real person if flagged fake.
+    // admins/officials can trace a report back to a real person if flagged fake.
     if (['researcher', 'ward_rep'].includes(finalRole) && !citizenshipDoc) {
       return res.status(422).json({ error: 'Please upload your citizenship certificate or national ID to verify your identity' });
     }
@@ -219,7 +226,7 @@ app.get('/api/budgets/changes', protect, (req, res) => {
 });
 
 app.post('/api/budgets/:id/changes', protect, (req, res) => {
-  if (!['analyst', 'ward_rep'].includes(req.user.role)) return res.status(403).json({ error: 'Only analysts or ward representatives can propose data changes' });
+  if (!['official', 'ward_rep'].includes(req.user.role)) return res.status(403).json({ error: 'Only officials or ward representatives can propose data changes' });
 
   const allowed = ['title', 'department', 'sector', 'amount', 'fiscalYear', 'district', 'ward'];
   const proposed = {};
@@ -245,7 +252,7 @@ app.post('/api/budgets/:id/changes', protect, (req, res) => {
 // Propose a brand-new budget record (not an edit to an existing line) — e.g.
 // data for a municipality or fiscal year that isn't in the system yet.
 app.post('/api/budgets/changes', protect, (req, res) => {
-  if (!['analyst', 'ward_rep'].includes(req.user.role)) return res.status(403).json({ error: 'Only analysts or ward representatives can propose new records' });
+  if (!['official', 'ward_rep'].includes(req.user.role)) return res.status(403).json({ error: 'Only officials or ward representatives can propose new records' });
 
   let { title, department, sector, amount, fiscalYear, district, municipality, ward, reason } = req.body;
   if (req.user.role === 'ward_rep') { const a = req.user.wardRepresentativeApplication || {}; district = a.district || district; municipality = a.municipality || municipality; ward = a.ward || ward; }
@@ -323,7 +330,7 @@ app.patch('/api/users/:id', protect, (req, res) => {
 });
 
 app.get('/api/users/:id/citizenship-doc', protect, (req, res) => {
-  if (!['admin', 'analyst'].includes(req.user.role)) return res.status(403).json({ error: 'Admin or analyst only' });
+  if (!['admin', 'official'].includes(req.user.role)) return res.status(403).json({ error: 'Admin or official only' });
   const doc = store.getCitizenshipDoc(req.params.id);
   if (!doc || !doc.citizenshipDoc) return res.status(404).json({ error: 'No citizenship document on file' });
   res.json(doc);
@@ -355,7 +362,7 @@ app.get('/api/reports/:id', protect, (req, res) => {
   res.json({ report });
 });
 
-// Single endpoint for the analyst/admin workflow: verify, assign to an
+// Single endpoint for the official/admin workflow: verify, assign to an
 // authority, revise the AI-suggested ETA, start work, mark complete, or
 // flag as fake/duplicate. `action` selects the transition.
 app.patch('/api/reports/:id', protect, async (req, res) => {
@@ -463,7 +470,7 @@ app.post('/api/authorities', protect, (req, res) => {
 });
 
 app.post('/api/authorities/ai-suggest', protect, (req, res) => {
-  if (!['admin', 'analyst'].includes(req.user.role)) return res.status(403).json({ error: 'Only admins or analysts can run area suggestions' });
+  if (!['admin', 'official'].includes(req.user.role)) return res.status(403).json({ error: 'Only admins or officials can run area suggestions' });
   const result = store.aiSuggestAuthorities(req.user._id, (req.body || {}).district);
   if (result.error) return res.status(422).json({ error: result.error });
   res.status(201).json(result);
@@ -537,6 +544,21 @@ app.patch('/api/notifications', protect, (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
+async function ensureNotificationIndexes() {
+  try {
+    const indexes = await Notification.collection.indexes();
+    const current = indexes.find(i => i.name === 'idempotencyKey_1');
+    const hasPartial = Boolean(current?.partialFilterExpression);
+    if (current && !hasPartial) await Notification.collection.dropIndex('idempotencyKey_1');
+    await Notification.collection.updateMany({ idempotencyKey: '' }, { $unset: { idempotencyKey: '' } });
+    await Notification.collection.createIndex(
+      { idempotencyKey: 1 },
+      { unique: true, name: 'idempotencyKey_1', partialFilterExpression: { idempotencyKey: { $exists: true, $gt: '' } } }
+    );
+  } catch (err) {
+    console.warn('Notification index repair skipped:', err.message);
+  }
+}
 const BASE_AUTHORITIES = [
   'Department of Roads', 'Municipal Ward Office', 'Disaster Management Authority',
   'Water Supply & Sewerage Corporation', 'Urban Development Dept', 'Electricity Authority',
@@ -545,6 +567,7 @@ const BASE_AUTHORITIES = [
 async function start() {
   await connect();
   if (getMode() === 'mongo') {
+    await ensureNotificationIndexes();
     const count = await Authority.countDocuments();
     if (count === 0) {
       await Authority.insertMany(BASE_AUTHORITIES.map(name => ({ name, department: name, district: '', source: 'seed' })));
