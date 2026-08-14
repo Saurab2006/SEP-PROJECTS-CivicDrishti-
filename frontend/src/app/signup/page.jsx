@@ -89,7 +89,7 @@ export default function SignupPage() {
           <input
             type="tel"
             className={`${styles.input} ${errors.phone ? styles.inputError : ''}`}
-            placeholder="98XXXXXXXX"
+            placeholder=""
             {...register('phone', {
               required: 'Phone number is required',
               pattern: { value: /^9\d{9}$/, message: 'Enter a valid 10-digit Nepal mobile number' }
