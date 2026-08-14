@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Building2, ClipboardList, FileText, Gauge, Landmark, LogOut, MapPinned, Settings, Table2, Users } from 'lucide-react';
+import { ClipboardList, Gauge, Landmark, LogOut, MapPinned, Settings, Table2, Users } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { cn, initials } from '@/lib/format';
@@ -17,6 +18,21 @@ const GROUPS = [
     { href: '/authorities', key: 'nav.authorities', note: 'nav.authoritiesNote', icon: Landmark },
     { href: '/reports', key: 'nav.reports', note: 'nav.briefsNote', icon: FileText },
   ] },
+  {
+    key: 'nav.civicWork',
+    items: [
+      { href: '/dashboard', key: 'nav.dashboard', note: 'nav.overviewNote', icon: Gauge },
+      { href: '/issues', key: 'nav.issues', note: 'nav.issuesNote', icon: ClipboardList },
+      { href: '/budget', key: 'nav.budget', note: 'nav.budgetNote', icon: Table2 },
+    ],
+  },
+  {
+    key: 'nav.accountability',
+    items: [
+      { href: '/authorities', key: 'nav.authorities', note: 'nav.authoritiesNote', icon: Landmark },
+    
+    ],
+  },
 ];
 
 export default function Sidebar() {
