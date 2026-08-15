@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 
 const timelineEntrySchema = new mongoose.Schema({
   action:  { type: String, required: true },
@@ -21,6 +21,7 @@ const incidentReportSchema = new mongoose.Schema({
 
   location: {
     address:      { type: String, trim: true },
+    province:     { type: String, trim: true },
     district:     { type: String, trim: true },
     municipality: { type: String, trim: true },
     ward:         { type: String, trim: true },
@@ -34,9 +35,15 @@ const incidentReportSchema = new mongoose.Schema({
   photoName:       { type: String, trim: true, default: '' },
   viaSms:          { type: Boolean, default: false },
   upvotes:         [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  supportCount:    { type: Number, default: 0 },
+  priorityScore:   { type: Number, default: 0 },
+  priorityLevel:   { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'low' },
+  priorityReason:  { type: String, trim: true, default: '' },
+  escalationState: { type: String, enum: ['none', 'ward-notified', 'municipality-notified'], default: 'none' },
+  supportThresholdReachedAt: { type: Date, default: null },
   comments:        [commentSchema],
 
-  // AI enrichment — populated best-effort at creation time. Never required,
+  // AI enrichment â€” populated best-effort at creation time. Never required,
   // so the app behaves identically whether or not GEMINI_API_KEY is set.
   embedding:            { type: [Number], default: undefined },
   language:             { type: String, trim: true, default: '' },
@@ -79,5 +86,7 @@ incidentReportSchema.index({ status: 1, createdAt: -1 });
 incidentReportSchema.index({ category: 1, 'location.district': 1 });
 incidentReportSchema.index({ reportedBy: 1, createdAt: -1 });
 incidentReportSchema.index({ duplicateOf: 1 });
+incidentReportSchema.index({ 'location.province': 1, 'location.district': 1, 'location.municipality': 1, 'location.ward': 1 });
+incidentReportSchema.index({ priorityLevel: 1, priorityScore: -1 });
 
 module.exports = mongoose.model('IncidentReport', incidentReportSchema);

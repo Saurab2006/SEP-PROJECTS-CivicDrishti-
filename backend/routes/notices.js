@@ -37,7 +37,7 @@ router.post('/', protect, requireRole('admin'), async (req, res) => {
     const title = String(req.body?.title || '').trim();
     const message = String(req.body?.message || '').trim();
     const priority = ['normal', 'important', 'urgent'].includes(req.body?.priority) ? req.body.priority : 'important';
-    const audience = ['all', 'admin', 'analyst', 'researcher'].includes(req.body?.audience) ? req.body.audience : 'all';
+    const audience = ['all', 'admin', 'municipality_head', 'researcher'].includes(req.body?.audience) ? req.body.audience : 'all';
     const durationUnit = req.body?.durationUnit === 'days' ? 'days' : 'hours';
     const durationValueRaw = Number(req.body?.durationValue);
     const durationValue = Math.max(1, Number.isFinite(durationValueRaw) && durationValueRaw > 0 ? durationValueRaw : 24);

@@ -246,27 +246,56 @@ This ensures that important public data cannot be changed without proper review.
 ## 📁 Project Structure
 
 ```text
-govinsight-nepal/
-│
-├── backend/
-│   ├── index.js
-│   ├── db.js
-│   ├── memstore.js
-│   ├── middleware/
-│   ├── models/
-│   ├── routes/
-│   ├── utils/
-│   ├── .env
-│   └── package.json
-│
-├── frontend/
+Government-web/
+├── frontend/                       # Next.js frontend (App Router)
 │   ├── src/
+│   │   ├── app/
+│   │   │   ├── (protected)/        # Auth-gated app pages
+│   │   │   │   ├── admin/          # User management, wards & representatives
+│   │   │   │   ├── analytics/      # Charts & spending analysis
+│   │   │   │   ├── authorities/    # Responsible authorities directory
+│   │   │   │   ├── budget/         # Budget explorer
+│   │   │   │   ├── dashboard/      # Civic overview (home after login)
+│   │   │   │   ├── departments/    # Implementing agencies
+│   │   │   │   ├── issues/         # Civic issue reports + map + detail/discussion
+│   │   │   │   ├── reports/        # AI-generated briefs
+│   │   │   │   ├── settings/       # Notices, account settings
+│   │   │   │   └── layout.jsx      # Sidebar + Topbar shell for all protected pages
+│   │   │   ├── api/                # Next.js route handlers
+│   │   │   ├── login/              # Login page
+│   │   │   ├── signup/             # Signup page (citizen / staff / ward rep)
+│   │   │   ├── globals.css
+│   │   │   ├── layout.jsx          # Root layout (fonts, providers, theme script)
+│   │   │   └── page.jsx            # Public landing page
+│   │   ├── components/             # Reusable UI (Sidebar, Topbar, MapPicker, IssuesMap, CivicAuthShell, etc.)
+│   │   ├── context/                # AuthContext, LanguageContext (global state)
+│   │   ├── lib/                    # API client, formatting, i18n, face-match helpers
+│   │   └── styles/                 # CSS modules (civicAuth.module.css)
 │   ├── public/
+│   │   ├── icons/
+│   │   └── models/                 # face-api.js models for selfie verification
+│   ├── jsconfig.json
 │   ├── next.config.js
+│   ├── postcss.config.js
 │   ├── tailwind.config.js
 │   └── package.json
 │
-└── package.json
+├── backend/                        # Node + Express API
+│   ├── models/                     # Mongoose schemas (User, IncidentReport, BudgetItem, Authority, Notice, Project, WardUnit, ...)
+│   ├── routes/                     # API route handlers (auth, reports, budgets, authorities, wards, notices, ...)
+│   ├── middleware/                 # Auth/role-guard middleware
+│   ├── utils/                      # Email, SMS, AI briefs, avatar-hue, seeding helpers
+│   ├── scripts/                    # One-off maintenance scripts (avatar re-roll, demo cleanup, etc.)
+│   ├── db.js                       # MongoDB connection (falls back to in-memory store if unreachable)
+│   ├── memstore.js                 # In-memory data store used in no-DB fallback mode
+│   ├── index.js                    # Express app entry point
+│   ├── .env                        # MONGODB_URI and other server secrets (not committed)
+│   └── package.json
+│
+├── .vscode/
+├── .gitignore
+├── README.md
+└── package.json                    # Root workspace scripts (npm run dev runs both apps)
 ```
 
 ---
@@ -428,19 +457,9 @@ Starts the Next.js frontend.
 
 ---
 
-## 🧪 Demo Accounts
+## 🧪 Test Accounts
 
-For demonstration and testing:
-
-| Role          | Email                      |
-| ------------- | -------------------------- |
-| 👑 Admin      | `admin@govinsight.np`      |
-| 🧑‍💼 Analyst | `analyst@govinsight.np`    |
-| 👤 Researcher | `researcher@govinsight.np` |
-
-The first login attempt with these demo emails automatically creates the corresponding account using the password entered during login.
-
-> 🔐 Use a test password during development and never use sensitive production credentials.
+Demo auto-provisioning has been removed — accounts are no longer created automatically on first login. Create real accounts via **Sign up**, choosing the role (Citizen, Local body staff, or Ward Representative). Admin accounts are provisioned manually and can promote other users' roles from **User Management**.
 
 ---
 

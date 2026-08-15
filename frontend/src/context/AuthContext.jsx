@@ -23,7 +23,7 @@ export function AuthProvider({ children }) {
     const data = await post('/api/auth/login', values);
     saveToken(data.token);
     setUser(data.user);
-    router.push('/dashboard');
+    router.push(data.user?.role === 'municipality_head' ? '/municipality/dashboard' : '/dashboard');
     return data.user;
   }, [router]);
 
@@ -39,7 +39,7 @@ export function AuthProvider({ children }) {
     }
     saveToken(data.token);
     setUser(data.user);
-    router.push('/dashboard');
+    router.push(data.user?.role === 'municipality_head' ? '/municipality/dashboard' : '/dashboard');
     return data.user;
   }, [router]);
 
@@ -62,6 +62,7 @@ export function AuthProvider({ children }) {
 }
 
 export function useAuth() { return useContext(AuthContext); }
+
 
 
 
