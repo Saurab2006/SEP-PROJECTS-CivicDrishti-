@@ -49,6 +49,60 @@ router.post('/ai-suggest', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Ranks authorities by rating, completion rate, and average resolution time.
+// "Assigned" reports are those handed to an authority (assigned/in-progress/
+// completed) — pending/verified reports haven't reached an authority yet, so
+// they're excluded from completion-rate math.
+router.get('/leaderboard', protect, async (req, res) => {
+  try {
+    const authorities = await Authority.find().lean();
+
+    const stats = await IncidentReport.aggregate([
+      { $match: { assignedDepartment: { $ne: '' }, status: { $in: ['assigned', 'in-progress', 'completed'] } } },
+      {
+        $group: {
+          _id: '$assignedDepartment',
+          totalAssigned: { $sum: 1 },
+          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+          avgResolutionMs: {
+            $avg: {
+              $cond: [
+                { $and: [{ $eq: ['$status', 'completed'] }, { $ne: ['$completedAt', null] }] },
+                { $subtract: ['$completedAt', '$createdAt'] },
+                null,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    const statsByName = Object.fromEntries(stats.map(s => [s._id, s]));
+
+    const leaderboard = authorities.map(a => {
+      const s = statsByName[a.name];
+      const totalAssigned = s?.totalAssigned || 0;
+      const completed = s?.completed || 0;
+      const completionRate = totalAssigned > 0 ? Math.round((completed / totalAssigned) * 100) : null;
+      const resolutionDays = s?.avgResolutionMs ? Math.round((s.avgResolutionMs / (1000 * 60 * 60 * 24)) * 10) / 10 : null;
+      return {
+        _id: a._id, name: a.name, department: a.department, district: a.district,
+        ratingAvg: a.ratingAvg || 0, ratingCount: a.ratingCount || 0,
+        totalAssigned, completed, completionRate, resolutionDays,
+      };
+    });
+
+    // Rank by completion rate first, then rating, as tiebreaker
+    leaderboard.sort((a, b) => {
+      const cr = (b.completionRate ?? -1) - (a.completionRate ?? -1);
+      if (cr !== 0) return cr;
+      return (b.ratingAvg || 0) - (a.ratingAvg || 0);
+    });
+
+    res.json({ leaderboard });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.get('/:id/reviews', protect, async (req, res) => {
   try {
     const reviews = await Review.find({ authority: req.params.id }).sort({ createdAt: -1 }).populate('user', 'name role avatarHue');

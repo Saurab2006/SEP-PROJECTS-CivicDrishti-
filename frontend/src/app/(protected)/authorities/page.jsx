@@ -3,12 +3,13 @@ import { useEffect, useState } from 'react';
 import { get, post } from '@/lib/api';
 import { relativeTime, cn } from '@/lib/format';
 import { toast } from 'sonner';
-import { Building2, Star, Plus, Loader2, X, Phone, Mail, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
+import { Building2, Star, Plus, Loader2, X, Phone, Mail, MapPin, ChevronDown, ChevronUp, Trophy, Medal, Clock, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AuthoritiesPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const [tab, setTab] = useState('directory'); // 'directory' | 'leaderboard'
   const [authorities, setAuthorities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [districtFilter, setDistrictFilter] = useState('');
@@ -24,7 +25,7 @@ export default function AuthoritiesPage() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [districtFilter]);
+  useEffect(() => { if (tab === 'directory') load(); /* eslint-disable-next-line */ }, [districtFilter, tab]);
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-5">
@@ -34,31 +35,122 @@ export default function AuthoritiesPage() {
           <h1 className="mt-1 text-2xl font-black text-[#102a2b]">Authorities</h1>
           <p className="mt-1 text-sm text-[#65706c]">See which public offices own the work, how citizens rate them, and who can be contacted.</p>
         </div>
-        {isAdmin && (
+        {isAdmin && tab === 'directory' && (
           <button onClick={() => setShowAddForm(true)} className="flex h-10 items-center gap-2 rounded-lg bg-[#dc143c] px-4 text-sm font-black text-white hover:bg-[#b80f31]">
             <Plus className="h-4 w-4" /> Add Authority
           </button>
         )}
       </div>
 
-      <div className="rounded-lg border border-[#ded6c8] bg-white p-4 shadow-sm">
-        <input value={districtFilter} onChange={e => setDistrictFilter(e.target.value)} placeholder="Filter by district..." className="h-10 w-full max-w-xs rounded-lg border border-[#ded6c8] bg-[#fffcf7] px-3 text-sm font-medium text-[#102a2b] outline-none focus:border-[#0f3d3e]" />
+      <div className="flex w-fit rounded-lg border border-[#ded6c8] bg-white p-1 shadow-sm">
+        <button onClick={() => setTab('directory')} className={cn('rounded-md px-4 py-2 text-sm font-black transition-colors', tab === 'directory' ? 'bg-[#0f3d3e] text-white' : 'text-[#65706c] hover:text-[#102a2b]')}>
+          Directory
+        </button>
+        <button onClick={() => setTab('leaderboard')} className={cn('rounded-md px-4 py-2 text-sm font-black transition-colors', tab === 'leaderboard' ? 'bg-[#0f3d3e] text-white' : 'text-[#65706c] hover:text-[#102a2b]')}>
+          Leaderboard
+        </button>
       </div>
 
-      {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="shimmer h-[150px] rounded-lg" />)}</div>
-      ) : authorities.length === 0 ? (
-        <div className="rounded-lg border border-[#ded6c8] bg-white p-16 text-center text-[#8c8272] shadow-sm">
-          <Building2 className="mx-auto mb-2 h-8 w-8 text-[#cfc4b4]" />
-          No authorities registered yet.
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {authorities.map(a => <AuthorityCard key={a._id} authority={a} expanded={expanded === a._id} onToggle={() => setExpanded(expanded === a._id ? null : a._id)} onChanged={load} />)}
-        </div>
-      )}
+      {tab === 'directory' ? (
+        <>
+          <div className="rounded-lg border border-[#ded6c8] bg-white p-4 shadow-sm">
+            <input value={districtFilter} onChange={e => setDistrictFilter(e.target.value)} placeholder="Filter by district..." className="h-10 w-full max-w-xs rounded-lg border border-[#ded6c8] bg-[#fffcf7] px-3 text-sm font-medium text-[#102a2b] outline-none focus:border-[#0f3d3e]" />
+          </div>
 
-      {showAddForm && <AddAuthorityForm onClose={() => setShowAddForm(false)} onCreated={() => { setShowAddForm(false); load(); }} />}
+          {loading ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="shimmer h-[150px] rounded-lg" />)}</div>
+          ) : authorities.length === 0 ? (
+            <div className="rounded-lg border border-[#ded6c8] bg-white p-16 text-center text-[#8c8272] shadow-sm">
+              <Building2 className="mx-auto mb-2 h-8 w-8 text-[#cfc4b4]" />
+              No authorities registered yet.
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {authorities.map(a => <AuthorityCard key={a._id} authority={a} expanded={expanded === a._id} onToggle={() => setExpanded(expanded === a._id ? null : a._id)} onChanged={load} />)}
+            </div>
+          )}
+
+          {showAddForm && <AddAuthorityForm onClose={() => setShowAddForm(false)} onCreated={() => { setShowAddForm(false); load(); }} />}
+        </>
+      ) : (
+        <Leaderboard />
+      )}
+    </div>
+  );
+}
+
+function Leaderboard() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    get('/api/authorities/leaderboard')
+      .then(r => setRows(r.leaderboard || []))
+      .catch(() => toast.error('Failed to load leaderboard'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="shimmer h-[72px] rounded-lg" />)}</div>;
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg border border-[#ded6c8] bg-white p-16 text-center text-[#8c8272] shadow-sm">
+        <Trophy className="mx-auto mb-2 h-8 w-8 text-[#cfc4b4]" />
+        No authorities to rank yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-[#ded6c8] bg-white shadow-sm">
+      <div className="hidden grid-cols-[48px_1fr_120px_140px_140px] gap-3 border-b border-[#eee6d8] bg-[#fffaf2] px-4 py-3 text-[11px] font-black uppercase tracking-wide text-[#8c8272] sm:grid">
+        <span>#</span>
+        <span>Authority</span>
+        <span>Rating</span>
+        <span>Resolution time</span>
+        <span>Completion rate</span>
+      </div>
+      <div className="divide-y divide-[#eee6d8]">
+        {rows.map((a, i) => <LeaderboardRow key={a._id} authority={a} rank={i + 1} />)}
+      </div>
+    </div>
+  );
+}
+
+function LeaderboardRow({ authority, rank }) {
+  const medalColor = rank === 1 ? 'text-amber-500' : rank === 2 ? 'text-slate-400' : rank === 3 ? 'text-amber-700' : null;
+
+  return (
+    <div className="grid grid-cols-2 gap-3 px-4 py-3 sm:grid-cols-[48px_1fr_120px_140px_140px] sm:items-center">
+      <div className="flex items-center gap-1">
+        {medalColor ? <Medal className={cn('h-5 w-5', medalColor)} /> : <span className="w-5 text-center text-sm font-black text-[#8c8272]">{rank}</span>}
+      </div>
+
+      <div className="col-span-2 sm:col-span-1">
+        <p className="text-sm font-black text-[#102a2b]">{authority.name}</p>
+        {authority.district && <p className="flex items-center gap-1 text-xs text-[#65706c]"><MapPin className="h-3 w-3" />{authority.district}</p>}
+      </div>
+
+      <div className="flex items-center gap-1">
+        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+        <span className="text-sm font-black text-[#102a2b]">{authority.ratingAvg?.toFixed(1) || '0.0'}</span>
+        <span className="text-xs text-[#8c8272]">({authority.ratingCount})</span>
+      </div>
+
+      <div className="flex items-center gap-1 text-sm text-[#102a2b]">
+        <Clock className="h-3.5 w-3.5 text-[#8c8272]" />
+        {authority.resolutionDays != null ? <span className="font-bold">{authority.resolutionDays}d avg</span> : <span className="text-[#8c8272]">No data</span>}
+      </div>
+
+      <div className="flex items-center gap-1 text-sm text-[#102a2b]">
+        <CheckCircle2 className="h-3.5 w-3.5 text-[#8c8272]" />
+        {authority.completionRate != null ? (
+          <span className="font-bold">{authority.completionRate}% <span className="font-normal text-[#8c8272]">({authority.completed}/{authority.totalAssigned})</span></span>
+        ) : <span className="text-[#8c8272]">No data</span>}
+      </div>
     </div>
   );
 }
