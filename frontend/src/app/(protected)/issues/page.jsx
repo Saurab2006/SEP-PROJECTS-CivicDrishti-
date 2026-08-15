@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import MapPicker from '@/components/MapPicker';
 import IssuesMap from '@/components/IssuesMap';
+import Pagination from '@/components/Pagination';
 
 const STATUS_STYLE = {
   pending: 'bg-amber-50 text-amber-700 border-amber-100',
@@ -48,6 +49,11 @@ export default function IssuesPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [viewMine, setViewMine] = useState(false);
   const [viewFlagged, setViewFlagged] = useState(false);
+  const [search, setSearch] = useState('');
+  const [severityFilter, setSeverityFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -62,6 +68,52 @@ export default function IssuesPage() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [statusFilter, categoryFilter, viewMine, viewFlagged]);
 
   const categoryLabel = (v) => meta.categories.find(c => c.value === v)?.label || v;
+
+  const filteredReports = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return reports.filter((r) => {
+      const searchable = [
+        r.title, r.description, r.severity, r.status, r.assignedDepartment,
+        r.location?.address, r.location?.district, r.location?.municipality, r.location?.ward,
+        categoryLabel(r.category),
+      ].filter(Boolean).join(' ').toLowerCase();
+      const matchesSearch = !q || searchable.includes(q);
+      const matchesSeverity = severityFilter === 'all' || r.severity === severityFilter;
+      return matchesSearch && matchesSeverity;
+    });
+  }, [reports, search, severityFilter, meta.categories]);
+
+  useEffect(() => { setPage(1); }, [statusFilter, categoryFilter, viewMine, viewFlagged, search, severityFilter, pageSize]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredReports.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pagedReports = filteredReports.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  const Filters = ({ mobile = false }) => (
+    <div className={cn('grid gap-2', mobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_180px_180px_auto_auto]')}>
+      <label className="relative min-w-0">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search title, ward, authority..." className="h-10 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-brand-500" />
+      </label>
+      <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-brand-500">
+        {STATUS_FILTERS.map(s => <option key={s} value={s}>{s === 'all' ? 'All statuses' : (s === 'completed' ? 'resolved' : s.replace('-', ' '))}</option>)}
+      </select>
+      <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-brand-500">
+        <option value="all">All categories</option>
+        {meta.categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+      </select>
+      <select value={severityFilter} onChange={e => setSeverityFilter(e.target.value)} className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-brand-500">
+        <option value="all">All severity</option>
+        {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+      </select>
+      {isStaff && (
+        <div className="flex flex-wrap gap-2">
+          <FilterToggle active={viewMine} onClick={() => setViewMine(v => !v)} label="Mine" />
+          <FilterToggle active={viewFlagged} onClick={() => setViewFlagged(v => !v)} label="Fake" icon={ShieldAlert} />
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-5">
@@ -111,20 +163,20 @@ export default function IssuesPage() {
             <h2 className="text-sm font-semibold text-gray-900">Issue map</h2>
             <p className="text-xs text-gray-400">Click a pin, or hover a card below, to line them up</p>
           </div>
-          <IssuesMap reports={reports} selectedId={selectedId} onSelect={setSelectedId} />
+          <IssuesMap reports={filteredReports} selectedId={selectedId} onSelect={setSelectedId} />
         </div>
       )}
 
       {loading ? (
-        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="shimmer h-[180px] rounded-2xl" />)}</div>
-      ) : reports.length === 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="shimmer h-[180px] rounded-2xl" />)}</div>
+      ) : filteredReports.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center text-gray-400">
           <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-gray-300" />
           No reports match these filters yet.
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {reports.map(r => (
+          {pagedReports.map(r => (
             <Link
               key={r._id}
               href={`/issues/${r._id}`}
@@ -156,6 +208,18 @@ export default function IssuesPage() {
             </Link>
           ))}
         </div>
+      )}
+
+      {!loading && filteredReports.length > 0 && (
+        <Pagination
+          page={safePage}
+          limit={pageSize}
+          total={filteredReports.length}
+          onPageChange={setPage}
+          onLimitChange={setPageSize}
+          pageSizeOptions={[6, 12, 24, 48]}
+          label="reports"
+        />
       )}
 
       {showForm && <ReportForm meta={meta} onClose={() => setShowForm(false)} onCreated={() => { setShowForm(false); load(); }} />}
@@ -248,12 +312,13 @@ function ReportForm({ meta, onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
-      <form onClick={e => e.stopPropagation()} onSubmit={submit} className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <form onClick={e => e.stopPropagation()} onSubmit={submit} className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
           <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-brand-500" />Report an issue</h3>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-50"><X className="w-4 h-4" /></button>
         </div>
-        <div className="p-5 space-y-5">
+        <div className="space-y-5 overflow-y-auto p-4 sm:p-5">
+          <div className="rounded-xl border border-brand-100 bg-brand-50/40 p-3 text-xs font-medium text-brand-700">Step 1 photo and details · Step 2 category · Step 3 location · Step 4 submit</div>
           <p className="text-xs leading-5 text-gray-500">Your report is checked against nearby issues. If others reported the same problem, you'll join their issue to raise its community impact - and you still get your own tracking ID.</p>
 
           <Field label="Title">
@@ -264,7 +329,7 @@ function ReportForm({ meta, onClose, onCreated }) {
             <textarea value={form.description} onChange={e => set('description', e.target.value)} rows={3} placeholder="Describe the issue, when you noticed it, and how it affects the community." className="input resize-none" />
           </Field>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Category">
               <select value={form.category} onChange={e => set('category', e.target.value)} className="input">
                 {meta.categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -288,7 +353,7 @@ function ReportForm({ meta, onClose, onCreated }) {
 
           <fieldset className="rounded-xl border border-gray-200 p-3.5">
             <legend className="px-1 text-xs font-semibold text-gray-500">Administrative area</legend>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Province"><input value={form.province} onChange={e => set('province', e.target.value)} className="input" /></Field>
               <Field label="District"><input value={form.district} onChange={e => set('district', e.target.value)} className="input" /></Field>
               <Field label="Municipality"><input value={form.municipality} onChange={e => set('municipality', e.target.value)} className="input" /></Field>
@@ -300,13 +365,13 @@ function ReportForm({ meta, onClose, onCreated }) {
             <span className="block text-xs font-semibold text-gray-700 mb-1.5">Photos (optional, up to {MAX_PHOTOS})</span>
             <div className="flex flex-wrap gap-2">
               {photos.map((p, i) => (
-                <div key={i} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200">
+                <div key={i} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-gray-200 sm:h-16 sm:w-16">
                   <img src={p.dataUrl} alt={p.name} className="h-full w-full object-cover" />
                   <button type="button" onClick={() => removePhoto(i)} className="absolute right-0.5 top-0.5 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"><X className="h-3 w-3" /></button>
                 </div>
               ))}
               {photos.length < MAX_PHOTOS && (
-                <label className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 text-gray-400 hover:border-brand-300 hover:bg-brand-50/40">
+                <label className="flex h-20 min-w-32 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 px-3 text-xs font-medium text-gray-500 hover:border-brand-300 hover:bg-brand-50/40 sm:h-16 sm:min-w-16">
                   <ImagePlus className="h-4 w-4" />
                   <input type="file" accept="image/*" multiple onChange={handlePhotoChange} className="hidden" />
                 </label>

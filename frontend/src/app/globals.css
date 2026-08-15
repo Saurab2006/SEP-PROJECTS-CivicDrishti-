@@ -208,4 +208,13 @@ body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: anti
 .dark .gov-app main .bg-\[\#f8fafc\] {
   background-color: var(--gov-surface-soft) !important;
 }
+@media (min-width: 1024px) {
+  .gov-app > .flex > aside[class*="fixed"][class*="w-[276px]"] ~ div {
+    padding-left: 276px;
+  }
+  .gov-app > .flex > aside[class*="fixed"][class*="w-[84px]"] ~ div {
+    padding-left: 84px;
+  }
+}
+
 

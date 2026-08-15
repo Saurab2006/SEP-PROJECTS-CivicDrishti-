@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import Link from 'next/link';
 import styles from '@/styles/civicAuth.module.css';
 import { CivicLogo } from '@/components/CivicBrand';
@@ -7,7 +7,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 export default function CivicAuthShell({ activeTab, children }) {
   return (
     <div className={styles.shell}>
-      <div className={styles.authShell}>
+      <div className={`${styles.authShell} ${activeTab === 'login' ? styles.loginShell : ''}`}>
         <section className={styles.sidePanel}>
           <video
             src="/nepal-flag-temple.mp4"
@@ -36,10 +36,19 @@ export default function CivicAuthShell({ activeTab, children }) {
           </div>
         </section>
 
+        <section className={styles.mobileHero} aria-hidden="true">
+          <img src="/civic-temple.png" alt="" className={styles.mobileHeroImage} />
+          <div className={styles.mobileHeroWash} />
+          <div className={styles.mobileHeroContent}>
+            <CivicLogo />
+            <p>सुनिने आवाज, दर्ज इतिहास</p>
+          </div>
+        </section>
+
         <section className={styles.formPanel}>
           <div className={styles.formPanelInner}>
             <div className={styles.mobileLogo}><CivicLogo /></div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div className={styles.authTopRow}>
               <p className={styles.eyebrow} style={{ margin: 0 }}>Secure Civic Access</p>
               <ThemeToggle />
             </div>
