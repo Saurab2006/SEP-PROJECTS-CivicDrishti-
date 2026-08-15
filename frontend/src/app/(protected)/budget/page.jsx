@@ -5,6 +5,7 @@ import { formatNPR, cn } from '@/lib/format';
 import { useAuth } from '@/context/AuthContext';
 import { Check, ChevronRight, Download, ListTree, Map, Search, Send, Table2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import Pagination from '@/components/Pagination';
 
 const emptyProposal = { title: '', department: '', sector: '', amount: '', fiscalYear: '', district: '', municipality: '', ward: '', reason: '' };
 const LEVELS = ['province', 'district', 'municipality', 'ward'];
@@ -24,6 +25,8 @@ export default function BudgetPage() {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [proposal, setProposal] = useState(emptyProposal);
+  const [budgetPage, setBudgetPage] = useState(1);
+  const [budgetLimit, setBudgetLimit] = useState(8);
 
   const canPropose = user?.role === 'municipality_head' || user?.role === 'ward_rep';
   const isWardRep = user?.role === 'ward_rep';
@@ -122,13 +125,19 @@ export default function BudgetPage() {
     } catch (err) { toast.error(err.message); }
   };
 
-  const visibleItems = items.filter(item => {
+  const filteredItems = useMemo(() => items.filter(item => {
     if (!parent) return true;
     if (currentLevel === 'district') return (item.province || '') === parent.name || item.district === parent.name;
     if (currentLevel === 'municipality') return item.district === parent.name;
     if (currentLevel === 'ward') return item.municipality === parent.name || item.district === parent.parent;
     return true;
-  }).slice(0, 8);
+  }), [items, parent, currentLevel]);
+
+  useEffect(() => { setBudgetPage(1); }, [parent?.name, currentLevel, budgetLimit]);
+
+  const budgetPages = Math.max(1, Math.ceil(filteredItems.length / budgetLimit));
+  const safeBudgetPage = Math.min(budgetPage, budgetPages);
+  const visibleItems = filteredItems.slice((safeBudgetPage - 1) * budgetLimit, safeBudgetPage * budgetLimit);
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-5">
@@ -176,7 +185,7 @@ export default function BudgetPage() {
         <div className="rounded-lg border border-[#ded6c8] bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-[#eee6d8] px-5 py-3">
             <h2 className="text-sm font-medium text-[#102a2b]">Budget lines behind this view</h2>
-            <span className="text-xs text-[#65706c]">{visibleItems.length} shown</span>
+            <span className="text-xs text-[#65706c]">{filteredItems.length} records</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -185,6 +194,9 @@ export default function BudgetPage() {
                 {visibleItems.length === 0 ? <tr><td colSpan={canPropose ? 5 : 4} className="px-5 py-12 text-center text-sm text-[#8c8272]"><Table2 className="mx-auto mb-2 h-7 w-7 text-[#cfc4b4]" />No budget lines in this level yet.</td></tr> : visibleItems.map(item => <tr key={item._id} className="hover:bg-[#fffaf2]"><td className="px-5 py-3.5"><p className="font-medium text-[#102a2b]">{item.title}</p><p className="text-xs text-[#8c8272]">{item.department}</p></td><td className="px-5 py-3.5 text-xs text-[#8c8272]">{item.district}{item.municipality ? `, ${item.municipality}` : ''}{item.ward ? `, Ward ${item.ward}` : ''}</td><td className="px-5 py-3.5"><StageBadge stage={item.status || 'planned'} /></td><td className="px-5 py-3.5 text-right text-[16px] font-medium text-[#0f6e56]">{formatNPR(item.amount)}</td>{canPropose && <td className="px-5 py-3.5 text-right"><button onClick={() => selectItem(item)} className="rounded-lg border border-[#ded6c8] px-3 py-1.5 text-xs font-medium text-[#0f3d3e] hover:bg-[#eef6f4]">Edit</button></td>}</tr>)}
               </tbody>
             </table>
+          </div>
+          <div className="border-t border-[#eee6d8] p-4">
+            <Pagination page={safeBudgetPage} limit={budgetLimit} total={filteredItems.length} onPageChange={setBudgetPage} onLimitChange={setBudgetLimit} pageSizeOptions={[8, 16, 32, 64]} label="budget lines" />
           </div>
         </div>
 
