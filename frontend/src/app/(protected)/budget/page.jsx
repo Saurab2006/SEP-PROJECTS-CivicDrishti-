@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { get, patch, post, getToken } from '@/lib/api';
 import { formatNPR, cn, relativeTime, initials } from '@/lib/format';
 import { useAuth } from '@/context/AuthContext';
-import { Check, ChevronRight, Download, ListTree, Map, MapPin, MessageSquare, Search, Send, Table2, ThumbsDown, ThumbsUp, User, X } from 'lucide-react';
+import { Check, ChevronRight, Download, Eye, ListTree, Map, MapPin, MessageSquare, Search, Send, SlidersHorizontal, Table2, ThumbsDown, ThumbsUp, User, X } from 'lucide-react';
 import { toast } from 'sonner';
 import Pagination from '@/components/Pagination';
 import CommunityFeedbackBoard from '@/components/CommunityFeedbackBoard';
@@ -46,9 +46,13 @@ export default function BudgetPage() {
   const [changes, setChanges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
+  const [recordQuery, setRecordQuery] = useState('');
+  const [recordStatus, setRecordStatus] = useState('all');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [view, setView] = useState('map');
   const [path, setPath] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
   const [feedbackItem, setFeedbackItem] = useState(null);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -102,7 +106,7 @@ export default function BudgetPage() {
 
   const total = useMemo(() => {
     const provinces = tracking?.provinces || [];
-    return provinces.reduce((acc, n) => ({ allocated: acc.allocated + n.allocated, spent: acc.spent + n.spent, completed: acc.completed + n.completed, remaining: acc.remaining + n.remaining, projectCount: acc.projectCount + n.projectCount }), { allocated: 0, spent: 0, completed: 0, remaining: 0, projectCount: 0 });
+    return provinces.reduce((acc, n) => ({ allocated: acc.allocated + n.allocated, spent: acc.spent + n.spent, completed: acc.completed + n.completed, remaining: acc.remaining + n.remaining, projectCount: acc.projectCount + n.projectCount, delayed: acc.delayed + (n.delayed || 0) }), { allocated: 0, spent: 0, completed: 0, remaining: 0, projectCount: 0, delayed: 0 });
   }, [tracking]);
 
   const drill = (node) => {
@@ -182,8 +186,24 @@ export default function BudgetPage() {
     if (district && item.district !== district.name) return false;
     if (municipality && item.municipality !== municipality.name) return false;
     if (ward && !sameWard(item.ward, ward.name)) return false;
+    if (recordStatus !== 'all' && (item.status || 'planned') !== recordStatus) return false;
+    if (recordQuery.trim()) {
+      const needle = recordQuery.trim().toLowerCase();
+      const haystack = `${item.title || ''} ${item.department || ''} ${item.sector || ''} ${item.district || ''} ${item.municipality || ''} ${item.ward || ''}`.toLowerCase();
+      if (!haystack.includes(needle)) return false;
+    }
     return true;
-  }), [items, path]);
+  }), [items, path, recordQuery, recordStatus]);
+
+  const contextSummary = useMemo(() => filteredItems.reduce((acc, item) => {
+    const flow = flowFor(item);
+    acc.allocated += flow.revisedBudget;
+    acc.spent += flow.paidAmount;
+    acc.remaining += flow.remainingAmount;
+    acc.completed += item.status === 'completed' ? 1 : 0;
+    acc.delayed += item.status === 'delayed' ? 1 : 0;
+    return acc;
+  }, { allocated: 0, spent: 0, remaining: 0, completed: 0, delayed: 0 }), [filteredItems]);
 
   useEffect(() => { setBudgetPage(1); }, [parent?.name, currentLevel, budgetLimit]);
 
@@ -209,11 +229,11 @@ export default function BudgetPage() {
         All citizens can browse budget records across Nepal. Creating or editing records is restricted to approved municipality heads and ward representatives, and every change requires admin approval before becoming public.
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <Metric label="Allocated" value={formatNPR(total.allocated)} />
-        <Metric label="Spent so far" value={formatNPR(total.spent)} />
-        <Metric label="Completed value" value={formatNPR(total.completed)} />
-        <Metric label="Yet to complete" value={formatNPR(total.remaining)} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Allocated" value={formatNPR(total.allocated)} helper="National public allocation" />
+        <Metric label="Spent" value={formatNPR(total.spent)} helper={`${total.projectCount} public projects`} />
+        <Metric label="Remaining" value={formatNPR(total.remaining)} helper={`${total.delayed} delayed projects`} />
+        <Metric label="Completion" value={total.allocated ? `${Math.round((total.spent / total.allocated) * 100)}%` : '0%'} helper={`${total.completed ? formatNPR(total.completed) : 'No'} completed value`} />
       </div>
 
       <CommunityFeedbackBoard />
@@ -241,23 +261,35 @@ export default function BudgetPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="rounded-lg border border-[#ded6c8] bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#eee6d8] px-5 py-3">
+          <div className="flex flex-col gap-3 border-b border-[#eee6d8] px-4 py-4 sm:px-5">
+            <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-medium text-[#102a2b]">Public budget records behind this view</h2>
-              <p className="mt-0.5 text-xs text-[#65706c]">Original, revised, released, paid, and remaining amounts are shown separately.</p>
+              <h2 className="text-sm font-medium text-[#102a2b]">Projects in this area</h2>
+              <p className="mt-0.5 text-xs text-[#65706c]">Key amounts and delivery status first. Open a project for the full financial record.</p>
             </div>
-            <span className="text-xs text-[#65706c]">{filteredItems.length} records</span>
+            <span className="shrink-0 rounded-full bg-[#eef6f4] px-2.5 py-1 text-xs font-medium text-[#0f3d3e]">{filteredItems.length} records</span>
+            </div>
+            <div className="grid gap-2 text-xs text-[#65706c] sm:grid-cols-3">
+              <CompactStat label="Allocated" value={formatNPR(contextSummary.allocated)} />
+              <CompactStat label="Spent" value={formatNPR(contextSummary.spent)} />
+              <CompactStat label="Completed / delayed" value={`${contextSummary.completed} / ${contextSummary.delayed}`} />
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8272]" /><input value={recordQuery} onChange={e => setRecordQuery(e.target.value)} placeholder="Search projects, department, or place" className="h-10 w-full rounded-lg border border-[#ded6c8] pl-9 pr-3 text-sm outline-none focus:border-[#0f3d3e]" /></div>
+              <button type="button" onClick={() => setFiltersOpen(v => !v)} className={cn('flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium sm:w-auto', filtersOpen || recordStatus !== 'all' ? 'border-[#0f3d3e] bg-[#eef6f4] text-[#0f3d3e]' : 'border-[#ded6c8] text-[#65706c]')}><SlidersHorizontal className="h-4 w-4" />Filters{recordStatus !== 'all' ? ' · 1' : ''}</button>
+            </div>
+            {filtersOpen && <div className="grid gap-2 rounded-lg bg-[#f8fbfd] p-3 sm:grid-cols-[minmax(0,220px)_auto] sm:items-end"><label className="block"><span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#8c8272]">Project status</span><select value={recordStatus} onChange={e => setRecordStatus(e.target.value)} className="h-10 w-full rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="all">All statuses</option>{Object.keys(STAGE_COLORS).map(status => <option key={status} value={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}</select></label>{(recordStatus !== 'all' || recordQuery) && <button type="button" onClick={() => { setRecordStatus('all'); setRecordQuery(''); }} className="h-10 rounded-lg px-3 text-sm font-medium text-[#dc143c] hover:bg-[#fff4f3]">Clear filters</button>}</div>}
           </div>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
-              <thead><tr className="border-b-2 border-[#102a2b] text-left text-[11px] text-[#8c8272]"><th className="px-5 py-3 font-normal">Project / Program</th><th className="px-5 py-3 font-normal">Area</th><th className="px-5 py-3 font-normal">Type</th><th className="px-5 py-3 font-normal">Status</th><th className="px-5 py-3 text-right font-normal">Money flow</th><th className="px-5 py-3 text-right font-normal">Action</th></tr></thead>
+              <thead><tr className="border-b-2 border-[#102a2b] text-left text-[11px] text-[#8c8272]"><th className="px-5 py-3 font-normal">Project / Program</th><th className="px-5 py-3 font-normal">Area</th><th className="px-5 py-3 font-normal">Type</th><th className="px-5 py-3 font-normal">Status</th><th className="px-5 py-3 text-right font-normal">Budget progress</th><th className="px-5 py-3 text-right font-normal">Action</th></tr></thead>
               <tbody className="divide-y divide-[#f2ede4]">
-                {visibleItems.length === 0 ? <tr><td colSpan={6} className="px-5 py-12 text-center text-sm text-[#8c8272]"><Table2 className="mx-auto mb-2 h-7 w-7 text-[#cfc4b4]" />No budget records in this level yet.</td></tr> : visibleItems.map(item => <BudgetRow key={item._id} item={item} canPropose={canPropose} canEdit={canManageItem(item)} onEdit={selectItem} onFeedback={setFeedbackItem} />)}
+                {visibleItems.length === 0 ? <tr><td colSpan={6} className="px-5 py-12 text-center text-sm text-[#8c8272]"><Table2 className="mx-auto mb-2 h-7 w-7 text-[#cfc4b4]" />No budget records match this view.</td></tr> : visibleItems.map(item => <BudgetRow key={item._id} item={item} canPropose={canPropose} canEdit={canManageItem(item)} onEdit={selectItem} onDetails={setDetailItem} onFeedback={setFeedbackItem} />)}
               </tbody>
             </table>
           </div>
           <div className="divide-y divide-[#f2ede4] md:hidden">
-            {visibleItems.length === 0 ? <div className="px-5 py-10 text-center text-sm text-[#8c8272]"><Table2 className="mx-auto mb-2 h-7 w-7 text-[#cfc4b4]" />No budget records in this level yet.</div> : visibleItems.map(item => <BudgetMobileCard key={item._id} item={item} canPropose={canPropose} canEdit={canManageItem(item)} onEdit={selectItem} onFeedback={setFeedbackItem} />)}
+            {visibleItems.length === 0 ? <div className="px-5 py-10 text-center text-sm text-[#8c8272]"><Table2 className="mx-auto mb-2 h-7 w-7 text-[#cfc4b4]" />No budget records match this view.</div> : visibleItems.map(item => <BudgetMobileCard key={item._id} item={item} canPropose={canPropose} canEdit={canManageItem(item)} onEdit={selectItem} onDetails={setDetailItem} onFeedback={setFeedbackItem} />)}
           </div>
           <div className="border-t border-[#eee6d8] p-4">
             <Pagination page={safeBudgetPage} limit={budgetLimit} total={filteredItems.length} onPageChange={setBudgetPage} onLimitChange={setBudgetLimit} pageSizeOptions={[8, 16, 32, 64]} label="budget records" />
@@ -270,13 +302,15 @@ export default function BudgetPage() {
           {(canApprove || canPropose) && <Approvals changes={changes} canApprove={canApprove} reviewChange={reviewChange} />}
         </aside>
       </div>
+      {detailItem && <ProjectDetailsModal item={detailItem} onClose={() => setDetailItem(null)} onFeedback={() => { setDetailItem(null); setFeedbackItem(detailItem); }} />}
     </div>
   );
 }
 
-function Metric({ label, value }) {
-  return <div className="rounded-lg border border-[#ded6c8] bg-white p-4 shadow-sm"><p className="text-[11px] text-[#8c8272]">{label}</p><p className="mt-1 text-[26px] font-medium tracking-tight tabular-nums text-[#0f6e56]">{value}</p></div>;
+function Metric({ label, value, helper }) {
+  return <div className="rounded-lg border border-[#ded6c8] bg-white p-4 shadow-sm"><p className="text-[11px] font-medium uppercase tracking-wide text-[#8c8272]">{label}</p><p className="mt-1 text-[26px] font-medium tracking-tight tabular-nums text-[#0f6e56]">{value}</p><p className="mt-1 text-xs text-[#65706c]">{helper}</p></div>;
 }
+function CompactStat({ label, value }) { return <div className="rounded-md border border-[#e2e8ee] bg-white px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-[#8c8272]">{label}</p><p className="mt-0.5 font-medium tabular-nums text-[#102a2b]">{value}</p></div>; }
 function Tab({ active, onClick, icon: Icon, children }) {
   return <button onClick={onClick} className={cn('flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium', active ? 'bg-[#0f3d3e] text-white' : 'border border-[#ded6c8] text-[#65706c] hover:bg-[#f7f2ea]')}><Icon className="h-4 w-4" />{children}</button>;
 }
@@ -292,13 +326,18 @@ function MapView({ nodes, level, onDrill }) {
 function ListView({ nodes, level, onDrill }) {
   return <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b-2 border-[#102a2b] text-left text-[11px] text-[#8c8272]"><th className="px-3 py-3">{LEVEL_LABEL[level]}</th><th className="px-3 py-3 text-right">Allocated</th><th className="px-3 py-3 text-right">Spent</th><th className="px-3 py-3">Completion</th><th className="px-3 py-3">Stages</th></tr></thead><tbody className="divide-y divide-[#f2ede4]">{nodes.map(n => <tr key={n.id} onClick={() => onDrill(n)} className="cursor-pointer hover:bg-[#fffaf2]"><td className="px-3 py-3.5 font-medium text-[#102a2b]">{n.name}</td><td className="px-3 py-3.5 text-right text-[15px] font-medium text-[#0f6e56]">{formatNPR(n.allocated)}</td><td className="px-3 py-3.5 text-right text-[15px] font-medium text-[#0f6e56]">{formatNPR(n.spent)}</td><td className="min-w-56 px-3 py-3.5"><Progress node={n} /></td><td className="px-3 py-3.5 text-xs text-[#8c8272]">{n.planned} planned / {n.ongoing} ongoing / {n.completedStage} done / {n.delayed} delayed</td></tr>)}</tbody></table></div>;
 }
-function BudgetRow({ item, canPropose, canEdit, onEdit, onFeedback }) {
+function BudgetRow({ item, canPropose, canEdit, onEdit, onDetails, onFeedback }) {
   const flow = flowFor(item);
-  return <tr className="align-top hover:bg-[#fffaf2]"><td className="px-5 py-3.5"><div className="flex flex-wrap items-center gap-2"><p className="font-medium text-[#102a2b]">{item.title}</p>{(item.isDemo || item.demoLabel) && <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">{item.demoLabel || 'Demo Data'}</span>}</div><p className="mt-0.5 text-xs text-[#8c8272]">{item.department}</p></td><td className="px-5 py-3.5 text-xs text-[#65706c]">{item.province || ''}{item.district ? ` / ${item.district}` : ''}{item.municipality ? ` / ${item.municipality}` : ''}{item.ward ? ` / Ward ${item.ward}` : ''}</td><td className="px-5 py-3.5 text-xs text-[#65706c]"><p>{item.expenditureType || 'Capital Expenditure'}</p><p className="mt-1 text-[#8c8272]">{item.programType || item.sector}</p></td><td className="px-5 py-3.5"><StageBadge stage={item.status || 'planned'} /></td><td className="min-w-72 px-5 py-3.5 text-right"><div className="grid grid-cols-2 gap-2 text-xs"><FlowCell label="Revised" value={flow.revisedBudget} /><FlowCell label="Released" value={flow.releasedAmount} /><FlowCell label="Paid" value={flow.paidAmount} accent /><FlowCell label="Remaining" value={flow.remainingAmount} /></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7edf3]"><div className="h-full rounded-full bg-[#dc143c]" style={{ width: `${flow.paidPercent}%` }} /></div><p className="mt-1 text-[11px] text-[#8c8272]">{flow.paidPercent}% paid from revised budget</p></td><td className="px-5 py-3.5 text-right"><div className="flex justify-end gap-2"><button onClick={() => onFeedback(item)} className="rounded-lg border border-[#ded6c8] px-3 py-1.5 text-xs font-medium text-[#0f3d3e] hover:bg-[#eef6f4]">Feedback</button>{canPropose && <button disabled={!canEdit} onClick={() => onEdit(item)} className="rounded-lg border border-[#ded6c8] px-3 py-1.5 text-xs font-medium text-[#0f3d3e] hover:bg-[#eef6f4] disabled:cursor-not-allowed disabled:opacity-40">Edit</button>}</div></td></tr>;
+  return <tr className="align-top hover:bg-[#fffaf2]"><td className="px-5 py-4"><div className="flex flex-wrap items-center gap-2"><p className="font-medium text-[#102a2b]">{item.title}</p>{(item.isDemo || item.demoLabel) && <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">{item.demoLabel || 'Demo Data'}</span>}</div><p className="mt-0.5 text-xs text-[#8c8272]">{item.department || item.sector || 'Public project'}</p></td><td className="px-5 py-4 text-xs text-[#65706c]">{item.district || '—'}<br />{item.municipality || '—'}{item.ward ? ` · Ward ${item.ward}` : ''}</td><td className="px-5 py-4 text-xs text-[#65706c]"><p>{item.programType || item.sector || '—'}</p><p className="mt-1 text-[#8c8272]">{item.fiscalYear || 'Current fiscal year'}</p></td><td className="px-5 py-4"><StageBadge stage={item.status || 'planned'} /></td><td className="min-w-52 px-5 py-4"><div className="flex items-end justify-between gap-2"><div><p className="text-[10px] uppercase tracking-wide text-[#8c8272]">Allocated</p><p className="mt-0.5 text-sm font-medium tabular-nums text-[#102a2b]">{formatNPR(flow.revisedBudget)}</p></div><p className="text-xs font-medium text-[#0f6e56]">{flow.paidPercent}% spent</p></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7edf3]"><div className="h-full rounded-full bg-[#0f3d3e]" style={{ width: `${flow.paidPercent}%` }} /></div><p className="mt-1 text-[11px] text-[#8c8272]">{formatNPR(flow.paidAmount)} spent</p></td><td className="px-5 py-4 text-right"><div className="flex justify-end gap-2"><button onClick={() => onDetails(item)} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#ded6c8] px-3 text-xs font-medium text-[#0f3d3e] hover:bg-[#eef6f4]"><Eye className="h-3.5 w-3.5" />View project</button><button onClick={() => onFeedback(item)} className="h-9 rounded-lg border border-[#ded6c8] px-3 text-xs font-medium text-[#0f3d3e] hover:bg-[#eef6f4]">Feedback</button>{canPropose && <button disabled={!canEdit} onClick={() => onEdit(item)} className="h-9 rounded-lg border border-[#ded6c8] px-3 text-xs font-medium text-[#0f3d3e] hover:bg-[#eef6f4] disabled:cursor-not-allowed disabled:opacity-40">Edit</button>}</div></td></tr>;
 }
-function BudgetMobileCard({ item, canPropose, canEdit, onEdit, onFeedback }) {
+function BudgetMobileCard({ item, canPropose, canEdit, onEdit, onDetails, onFeedback }) {
   const flow = flowFor(item);
-  return <div className="p-4"><div className="flex items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-medium text-[#102a2b]">{item.title}</h3>{(item.isDemo || item.demoLabel) && <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">{item.demoLabel || 'Demo Data'}</span>}</div><p className="mt-1 text-xs text-[#65706c]">{item.district} / {item.municipality} / Ward {item.ward}</p></div><StageBadge stage={item.status || 'planned'} /></div><div className="mt-3 grid grid-cols-2 gap-2 text-xs"><FlowCell label="Revised" value={flow.revisedBudget} /><FlowCell label="Released" value={flow.releasedAmount} /><FlowCell label="Paid" value={flow.paidAmount} accent /><FlowCell label="Remaining" value={flow.remainingAmount} /></div><div className="mt-3 flex flex-wrap gap-2"><button onClick={() => onFeedback(item)} className="h-9 rounded-lg border border-[#ded6c8] px-3 text-xs font-medium text-[#0f3d3e]">Feedback</button>{canPropose && <button disabled={!canEdit} onClick={() => onEdit(item)} className="h-9 rounded-lg border border-[#ded6c8] px-3 text-xs font-medium text-[#0f3d3e] disabled:cursor-not-allowed disabled:opacity-40">Edit</button>}</div>{canPropose && !canEdit && <p className="mt-2 text-[11px] text-[#8c8272]">Management locked outside your assigned jurisdiction.</p>}</div>;
+  return <div className="p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-medium text-[#102a2b]">{item.title}</h3>{(item.isDemo || item.demoLabel) && <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">{item.demoLabel || 'Demo Data'}</span>}</div><p className="mt-1 text-xs text-[#65706c]">{item.district || '—'} · {item.municipality || '—'}{item.ward ? ` · Ward ${item.ward}` : ''}</p></div><StageBadge stage={item.status || 'planned'} /></div><div className="mt-3 rounded-lg bg-[#f8fbfd] p-3"><div className="flex items-end justify-between gap-2"><div><p className="text-[10px] uppercase tracking-wide text-[#8c8272]">Allocated</p><p className="mt-0.5 text-sm font-medium tabular-nums text-[#102a2b]">{formatNPR(flow.revisedBudget)}</p></div><p className="text-xs font-medium text-[#0f6e56]">{flow.paidPercent}% spent</p></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7edf3]"><div className="h-full rounded-full bg-[#0f3d3e]" style={{ width: `${flow.paidPercent}%` }} /></div></div><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={() => onDetails(item)} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-[#ded6c8] text-xs font-medium text-[#0f3d3e]"><Eye className="h-3.5 w-3.5" />View project</button><button onClick={() => onFeedback(item)} className="h-10 rounded-lg border border-[#ded6c8] text-xs font-medium text-[#0f3d3e]">Feedback</button>{canPropose && <button disabled={!canEdit} onClick={() => onEdit(item)} className="col-span-2 h-10 rounded-lg border border-[#ded6c8] text-xs font-medium text-[#0f3d3e] disabled:cursor-not-allowed disabled:opacity-40">Propose edit</button>}</div>{canPropose && !canEdit && <p className="mt-2 text-[11px] text-[#8c8272]">Management locked outside your assigned jurisdiction.</p>}</div>;
+}
+
+function ProjectDetailsModal({ item, onClose, onFeedback }) {
+  const flow = flowFor(item);
+  return <div className="fixed inset-0 z-50 flex items-end bg-black/35 sm:items-center sm:justify-center sm:p-4" onClick={onClose}><div role="dialog" aria-modal="true" aria-label="Project details" onClick={e => e.stopPropagation()} className="max-h-[92vh] w-full overflow-y-auto rounded-t-xl bg-white shadow-xl sm:max-w-2xl sm:rounded-xl"><div className="sticky top-0 flex items-start justify-between gap-3 border-b border-[#eee6d8] bg-white px-4 py-4 sm:px-6"><div className="min-w-0"><p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#dc143c]">Public project details</p><h2 className="mt-1 text-lg font-medium text-[#102a2b]">{item.title}</h2><p className="mt-1 text-xs text-[#65706c]">{[item.province, item.district, item.municipality, item.ward && `Ward ${item.ward}`].filter(Boolean).join(' → ')}</p></div><button type="button" onClick={onClose} className="shrink-0 rounded-lg p-2 text-[#8c8272] hover:bg-[#fffaf2]" aria-label="Close project details"><X className="h-4 w-4" /></button></div><div className="space-y-5 p-4 sm:p-6"><div className="flex flex-wrap items-center gap-2"><StageBadge stage={item.status || 'planned'} /><span className="rounded-md bg-[#eef6f4] px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-[#0f3d3e]">{item.programType || item.sector || 'Public program'}</span><span className="text-xs text-[#65706c]">{item.department || 'Department not specified'} · {item.fiscalYear || 'Current fiscal year'}</span></div><div className="rounded-lg border border-[#eee6d8] bg-[#f8fbfd] p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs text-[#65706c]">Delivery progress</p><p className="mt-1 text-xl font-medium tabular-nums text-[#102a2b]">{flow.paidPercent}% spent</p></div><p className="text-right text-xs text-[#65706c]">{formatNPR(flow.paidAmount)} paid<br />of {formatNPR(flow.revisedBudget)}</p></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e7edf3]"><div className="h-full rounded-full bg-[#0f3d3e]" style={{ width: `${flow.paidPercent}%` }} /></div></div><div><h3 className="text-sm font-medium text-[#102a2b]">Financial record</h3><p className="mt-1 text-xs text-[#65706c]">Detailed amounts are shown here to keep the public register easy to scan.</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"><FlowCell label="Original approval" value={flow.originalApprovedBudget} /><FlowCell label="Revised budget" value={flow.revisedBudget} /><FlowCell label="Released" value={flow.releasedAmount} /><FlowCell label="Contracted" value={flow.contractedAmount} /><FlowCell label="Paid" value={flow.paidAmount} accent /><FlowCell label="Remaining" value={flow.remainingAmount} /></div></div><div className="flex flex-col-reverse gap-2 border-t border-[#eee6d8] pt-4 sm:flex-row sm:justify-end"><button type="button" onClick={onClose} className="h-10 rounded-lg border border-[#ded6c8] px-4 text-sm font-medium text-[#65706c]">Close</button><button type="button" onClick={onFeedback} className="h-10 rounded-lg bg-[#0f3d3e] px-4 text-sm font-medium text-white hover:bg-[#102a2b]">Give community feedback</button></div></div></div></div>;
 }
 
 const VERDICTS = [
@@ -541,5 +580,7 @@ function ProposalForm({ creating, selected, proposal, setProposal, submitProposa
   return <form onSubmit={submitProposal} className="rounded-lg border border-[#ded6c8] bg-white p-5 shadow-sm"><div className="mb-3 flex items-center justify-between"><div><h2 className="text-sm font-medium text-[#102a2b]">{creating ? 'Add budget record' : selected ? 'Propose budget edit' : 'Official workspace'}</h2><p className="text-xs text-[#65706c]">Financial updates go to admin approval.</p></div>{enabled && <button type="button" onClick={cancel} className="rounded-md p-1 text-[#8c8272] hover:bg-[#f7f2ea]"><X className="h-4 w-4" /></button>}</div><div className="grid gap-2 sm:grid-cols-2">{['title','department','sector','fiscalYear','district','municipality','ward'].map(f => <input key={f} disabled={!enabled} value={proposal[f]} onChange={e => update(f, e.target.value)} placeholder={f} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:bg-[#f7f2ea]" />)}<select disabled={!enabled} value={proposal.expenditureType} onChange={e => update('expenditureType', e.target.value)} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:bg-[#f7f2ea]">{EXPENDITURE_TYPES.map(v => <option key={v}>{v}</option>)}</select><select disabled={!enabled} value={proposal.programType} onChange={e => update('programType', e.target.value)} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:bg-[#f7f2ea]">{PROGRAM_TYPES.map(v => <option key={v}>{v}</option>)}</select>{[['amount','allocated amount'],['originalApprovedBudget','original approved'],['revisedBudget','revised budget'],['releasedAmount','released amount'],['contractedAmount','contracted amount'],['paidAmount','paid amount']].map(([key, label]) => <input key={key} disabled={!enabled} type="number" value={proposal[key]} onChange={e => update(key, e.target.value)} placeholder={label} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:bg-[#f7f2ea]" />)}</div><textarea disabled={!enabled} value={proposal.reason} onChange={e => update('reason', e.target.value)} placeholder="Reason for this budget change" className="mt-2 min-h-20 w-full rounded-lg border border-[#ded6c8] px-3 py-2 text-sm outline-none focus:border-[#0f3d3e] disabled:bg-[#f7f2ea]" /><button disabled={!enabled || saving} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#0f3d3e] text-sm font-medium text-white disabled:opacity-50"><Send className="h-4 w-4" />Submit for approval</button></form>;
 }
 function Approvals({ changes, canApprove, reviewChange }) {
-  return <div className="rounded-lg border border-[#ded6c8] bg-white shadow-sm"><div className="border-b border-[#eee6d8] px-5 py-3"><h2 className="text-sm font-medium text-[#102a2b]">{canApprove ? 'Admin approvals' : 'Pending proposals'}</h2></div><div className="max-h-[420px] divide-y divide-[#f2ede4] overflow-y-auto">{changes.length === 0 ? <p className="px-5 py-8 text-center text-sm text-[#8c8272]">No budget change history yet.</p> : changes.map(change => <div key={change._id} className="p-5"><p className="text-sm font-medium text-[#102a2b]">{change.budgetItem?.title || change.proposed?.title || 'New budget record'}</p>{change.requestedBy?.name && <p className="text-xs text-[#65706c]">By {change.requestedBy.name}</p>}{change.reason && <p className="mt-2 rounded-lg bg-[#f7f2ea] p-2 text-xs text-[#65706c]">{change.reason}</p>}<div className="mt-2 flex items-center justify-between"><span className={cn('rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wide', change.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : change.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700')}>{change.status}</span></div>{canApprove && change.status === 'pending' && <div className="mt-3 flex gap-2"><button onClick={() => reviewChange(change._id, 'approved')} className="flex h-9 flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-600 text-xs font-medium text-white"><Check className="h-3.5 w-3.5" />Approve</button><button onClick={() => reviewChange(change._id, 'rejected')} className="h-9 flex-1 rounded-lg bg-red-600 text-xs font-medium text-white">Reject</button></div>}</div>)}</div></div>;
+  const pending = changes.filter(change => change.status === 'pending');
+  const visible = canApprove ? pending : changes.slice(0, 5);
+  return <div className="rounded-lg border border-[#ded6c8] bg-white shadow-sm"><div className="flex items-center justify-between border-b border-[#eee6d8] px-4 py-3"><div><h2 className="text-sm font-medium text-[#102a2b]">{canApprove ? 'Admin approvals' : 'Recent proposals'}</h2><p className="mt-0.5 text-xs text-[#65706c]">{canApprove ? `${pending.length} awaiting review` : 'Latest budget workflow updates'}</p></div>{pending.length > 0 && <span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700">{pending.length} pending</span>}</div><div className="divide-y divide-[#f2ede4]">{visible.length === 0 ? <p className="px-4 py-7 text-center text-sm text-[#8c8272]">{canApprove ? 'No approvals are waiting.' : 'No budget change history yet.'}</p> : visible.map(change => <div key={change._id} className="p-4"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-medium text-[#102a2b]">{change.budgetItem?.title || change.proposed?.title || 'New budget record'}</p>{change.requestedBy?.name && <p className="mt-0.5 text-xs text-[#65706c]">Requested by {change.requestedBy.name}</p>}</div><span className={cn('shrink-0 rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wide', change.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : change.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700')}>{change.status}</span></div>{change.reason && <p className="mt-2 line-clamp-2 text-xs text-[#65706c]">{change.reason}</p>}{canApprove && <div className="mt-3 grid grid-cols-2 gap-2"><button onClick={() => reviewChange(change._id, 'approved')} className="flex h-9 items-center justify-center gap-1 rounded-lg bg-emerald-600 text-xs font-medium text-white"><Check className="h-3.5 w-3.5" />Approve</button><button onClick={() => reviewChange(change._id, 'rejected')} className="h-9 rounded-lg bg-red-600 text-xs font-medium text-white">Reject</button></div>}</div>)}</div>{canApprove && changes.length > visible.length && <p className="border-t border-[#eee6d8] px-4 py-2.5 text-center text-xs text-[#65706c]">Only pending requests are shown here.</p>}</div>;
 }
