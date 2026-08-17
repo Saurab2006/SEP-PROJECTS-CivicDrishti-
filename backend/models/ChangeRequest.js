@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 
 const changeRequestSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -8,6 +8,8 @@ const changeRequestSchema = new mongoose.Schema({
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   reason: { type: String, trim: true },
+  rejectionReason: { type: String, trim: true, default: '' },
+  previous: { type: mongoose.Schema.Types.Mixed, default: {} },
   proposed: {
     title: { type: String, trim: true },
     department: { type: String, trim: true },
@@ -17,6 +19,15 @@ const changeRequestSchema = new mongoose.Schema({
     district: { type: String, trim: true },
     municipality: { type: String, trim: true },
     ward: { type: String, trim: true },
+    province: { type: String, trim: true },
+    expenditureType: { type: String, trim: true },
+    programType: { type: String, trim: true },
+    originalApprovedBudget: { type: Number },
+    revisedBudget: { type: Number },
+    releasedAmount: { type: Number },
+    contractedAmount: { type: Number },
+    paidAmount: { type: Number },
+    wardUnit: { type: mongoose.Schema.Types.ObjectId, ref: 'WardUnit', default: null },
     document: { type: mongoose.Schema.Types.ObjectId, ref: 'Document' },
   },
   reviewedAt: { type: Date },
@@ -27,3 +38,4 @@ changeRequestSchema.index({ requestedBy: 1, createdAt: -1 });
 changeRequestSchema.index({ budgetItem: 1, status: 1 });
 
 module.exports = mongoose.model('ChangeRequest', changeRequestSchema);
+

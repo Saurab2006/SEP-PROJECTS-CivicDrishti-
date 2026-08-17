@@ -1,13 +1,16 @@
 ﻿'use client';
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { initials } from '@/lib/format';
 import { post } from '@/lib/api';
 import { toast } from 'sonner';
-import { MailCheck, Megaphone, Send } from 'lucide-react';
+import { Languages, MailCheck, Megaphone, Send, Sun } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function SettingsPage() {
   const { user, verifyEmail, resendEmailOtp } = useAuth();
+  const { locale, setLocale, t } = useLanguage();
   const [otp, setOtp] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [notice, setNotice] = useState({ title: '', message: '', priority: 'important', audience: 'all', durationValue: 24, durationUnit: 'hours' });
@@ -17,13 +20,13 @@ export default function SettingsPage() {
   const submitOtp = async (e) => {
     e.preventDefault();
     setVerifying(true);
-    try { await verifyEmail(otp); setOtp(''); toast.success('Email verified'); }
+    try { await verifyEmail(otp); setOtp(''); toast.success(t('settings.emailVerified')); }
     catch (err) { toast.error(err.message); }
     setVerifying(false);
   };
 
   const resendOtp = async () => {
-    try { await resendEmailOtp(); toast.success('Verification code sent'); }
+    try { await resendEmailOtp(); toast.success(t('common.recently')); }
     catch (err) { toast.error(err.message); }
   };
 
@@ -32,7 +35,7 @@ export default function SettingsPage() {
     setSending(true);
     try {
       const d = await post('/api/notices', notice);
-      toast.success(`Notice sent to ${d.emailed || 0} user(s)`);
+      toast.success(`${t('settings.sendNoticeButton')}: ${d.emailed || 0}`);
       setNotice({ title: '', message: '', priority: 'important', audience: 'all', durationValue: 24, durationUnit: 'hours' });
     } catch (err) { toast.error(err.message); }
     setSending(false);
@@ -40,47 +43,77 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-[980px] space-y-5">
-      <div><h1 className="text-2xl font-bold text-[#102a2b]">Settings</h1><p className="mt-1 text-sm text-[#65706c]">Profile, email verification, and admin notices</p></div>
+      <div><h1 className="text-2xl font-bold text-[#102a2b]">{t('settings.title')}</h1><p className="mt-1 text-sm text-[#65706c]">{t('settings.subtitle')}</p></div>
       <div className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center gap-4">
           <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-[#0f3d3e] text-lg font-bold text-white">{initials(user.name)}</div>
           <div>
             <p className="text-lg font-bold text-[#102a2b]">{user.name}</p>
             <p className="text-sm text-[#65706c]">{user.email}</p>
-            <div className="mt-1 flex flex-wrap gap-2"><span className="rounded-md bg-[#eef6f4] px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#0f3d3e]">{user.role}</span><span className={user.emailVerified ? 'rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700' : 'rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700'}>{user.emailVerified ? 'Email verified' : 'Email pending'}</span></div>
+            <div className="mt-1 flex flex-wrap gap-2"><span className="rounded-md bg-[#eef6f4] px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-[#0f3d3e]">{user.role}</span><span className={user.emailVerified ? 'rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700' : 'rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700'}>{user.emailVerified ? t('settings.emailVerified') : t('settings.emailPending')}</span></div>
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          {[{ l: 'Full Name', v: user.name }, { l: 'Email', v: user.email }, { l: 'Role', v: user.role }, { l: 'Organization', v: user.organization || '-' }, { l: 'Job Title', v: user.jobTitle || '-' }, { l: 'Member Since', v: new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) }].map((f, i) => (
+          {[{ l: t('settings.fullName'), v: user.name }, { l: t('settings.email'), v: user.email }, { l: t('settings.role'), v: user.role }, { l: t('settings.organization'), v: user.organization || '-' }, { l: t('settings.jobTitle'), v: user.jobTitle || '-' }, { l: t('settings.memberSince'), v: new Date(user.createdAt).toLocaleDateString(locale === 'ne' ? 'ne-NP' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' }) }].map((f, i) => (
             <div key={i}><label className="mb-1 block text-xs font-medium text-[#8c8272]">{f.l}</label><div className="flex h-10 items-center rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm text-[#102a2b]">{f.v}</div></div>
           ))}
         </div>
       </div>
 
+      <div className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm lg:hidden">
+        <h2 className="text-sm font-black text-[#102a2b]">{t('settings.preferences')}</h2>
+        <p className="mt-1 text-sm text-[#65706c]">{t('settings.preferencesSub')}</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="flex items-center justify-between rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-md bg-white text-[#0f3d3e]"><Languages className="h-4 w-4" /></div>
+              <div>
+                <p className="text-sm font-bold text-[#102a2b]">{t('settings.language')}</p>
+                <p className="text-xs text-[#8c8272]">{locale === 'en' ? 'English' : 'नेपाली'}</p>
+              </div>
+            </div>
+            <div className="flex gap-1 rounded-lg border border-[#ded6c8] bg-white p-1">
+              <button type="button" onClick={() => setLocale('en')} className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${locale === 'en' ? 'bg-[#0f3d3e] text-white' : 'text-[#65706c] hover:bg-[#fffaf2]'}`}>EN</button>
+              <button type="button" onClick={() => setLocale('ne')} className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${locale === 'ne' ? 'bg-[#0f3d3e] text-white' : 'text-[#65706c] hover:bg-[#fffaf2]'}`}>नेपाली</button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-md bg-white text-[#0f3d3e]"><Sun className="h-4 w-4" /></div>
+              <div>
+                <p className="text-sm font-bold text-[#102a2b]">{t('settings.appearance')}</p>
+                <p className="text-xs text-[#8c8272]">{t('settings.dayNightMode')}</p>
+              </div>
+            </div>
+            <ThemeToggle />
+          </div>
+        </div>
+      </div>
+
       {!user.emailVerified && <form onSubmit={submitOtp} className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm">
-        <h2 className="flex items-center gap-2 text-sm font-black text-[#102a2b]"><MailCheck className="h-4 w-4 text-[#dc143c]" />Verify email</h2>
-        <p className="mt-1 text-sm text-[#65706c]">Enter the 6-digit code sent to your email.</p>
-        <div className="mt-4 flex flex-wrap gap-2"><input value={otp} onChange={e => setOtp(e.target.value)} placeholder="123456" className="h-10 w-44 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]" /><button disabled={verifying || otp.length < 6} className="h-10 rounded-lg bg-[#dc143c] px-4 text-sm font-black text-white disabled:opacity-50">Verify</button><button type="button" onClick={resendOtp} className="h-10 rounded-lg border border-[#ded6c8] px-4 text-sm font-black text-[#0f3d3e] hover:bg-[#fffaf2]">Resend code</button></div>
+        <h2 className="flex items-center gap-2 text-sm font-black text-[#102a2b]"><MailCheck className="h-4 w-4 text-[#dc143c]" />{t('settings.verifyEmail')}</h2>
+        <p className="mt-1 text-sm text-[#65706c]">{t('settings.verifyEmailSub')}</p>
+        <div className="mt-4 flex flex-wrap gap-2"><input value={otp} onChange={e => setOtp(e.target.value)} placeholder="123456" className="h-10 w-44 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]" /><button disabled={verifying || otp.length < 6} className="h-10 rounded-lg bg-[#dc143c] px-4 text-sm font-black text-white disabled:opacity-50">{t('settings.verify')}</button><button type="button" onClick={resendOtp} className="h-10 rounded-lg border border-[#ded6c8] px-4 text-sm font-black text-[#0f3d3e] hover:bg-[#fffaf2]">{t('settings.resendCode')}</button></div>
       </form>}
 
       {user.role === 'admin' && <form onSubmit={sendNotice} className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm">
-        <h2 className="flex items-center gap-2 text-sm font-black text-[#102a2b]"><Megaphone className="h-4 w-4 text-[#dc143c]" />Send important notice</h2>
-        <p className="mt-1 text-sm text-[#65706c]">Shows at the top of the app and sends an email to the selected audience.</p>
+        <h2 className="flex items-center gap-2 text-sm font-black text-[#102a2b]"><Megaphone className="h-4 w-4 text-[#dc143c]" />{t('settings.sendNotice')}</h2>
+        <p className="mt-1 text-sm text-[#65706c]">{t('settings.sendNoticeSub')}</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <input value={notice.title} onChange={e => setNotice(n => ({ ...n, title: e.target.value }))} placeholder="Notice title" className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e] sm:col-span-2" />
-          <select value={notice.audience} onChange={e => setNotice(n => ({ ...n, audience: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="all">All users</option><option value="researcher">Citizens</option><option value="municipality head">Municipality heads</option><option value="admin">Admins</option></select>
-          <select value={notice.priority} onChange={e => setNotice(n => ({ ...n, priority: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="important">Important</option><option value="urgent">Urgent</option><option value="normal">Normal</option></select>
-          <textarea value={notice.message} onChange={e => setNotice(n => ({ ...n, message: e.target.value }))} placeholder="Write the notice people must see" className="min-h-28 rounded-lg border border-[#ded6c8] px-3 py-2 text-sm outline-none focus:border-[#0f3d3e] sm:col-span-2" />
+          <input value={notice.title} onChange={e => setNotice(n => ({ ...n, title: e.target.value }))} placeholder={t('settings.noticeTitle')} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e] sm:col-span-2" />
+          <select value={notice.audience} onChange={e => setNotice(n => ({ ...n, audience: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="all">{t('settings.allUsers')}</option><option value="researcher">{t('settings.citizens')}</option><option value="municipality head">{t('settings.municipalityHeads')}</option><option value="admin">{t('settings.admins')}</option></select>
+          <select value={notice.priority} onChange={e => setNotice(n => ({ ...n, priority: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="important">{t('settings.important')}</option><option value="urgent">{t('settings.urgent')}</option><option value="normal">{t('settings.normal')}</option></select>
+          <textarea value={notice.message} onChange={e => setNotice(n => ({ ...n, message: e.target.value }))} placeholder={t('settings.noticeMessagePlaceholder')} className="min-h-28 rounded-lg border border-[#ded6c8] px-3 py-2 text-sm outline-none focus:border-[#0f3d3e] sm:col-span-2" />
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-[#8c8272]">Notice stays visible for</label>
+            <label className="mb-1 block text-xs font-medium text-[#8c8272]">{t('settings.noticeStaysVisible')}</label>
             <div className="flex gap-2">
               <input type="number" min="1" value={notice.durationValue} onChange={e => setNotice(n => ({ ...n, durationValue: e.target.value }))} className="h-10 w-24 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]" />
-              <select value={notice.durationUnit} onChange={e => setNotice(n => ({ ...n, durationUnit: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="hours">Hours</option><option value="days">Days</option></select>
-              <span className="flex items-center text-xs text-[#8c8272]">Default: 24 hours</span>
+              <select value={notice.durationUnit} onChange={e => setNotice(n => ({ ...n, durationUnit: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="hours">{t('settings.hours')}</option><option value="days">{t('settings.days')}</option></select>
+              <span className="flex items-center text-xs text-[#8c8272]">{t('settings.defaultDuration')}</span>
             </div>
           </div>
         </div>
-        <button disabled={sending || !notice.title.trim() || !notice.message.trim()} className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-[#0f3d3e] px-4 text-sm font-black text-white disabled:opacity-50"><Send className="h-4 w-4" />Send notice + email</button>
+        <button disabled={sending || !notice.title.trim() || !notice.message.trim()} className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-[#0f3d3e] px-4 text-sm font-black text-white disabled:opacity-50"><Send className="h-4 w-4" />{t('settings.sendNoticeButton')}</button>
       </form>}
     </div>
   );

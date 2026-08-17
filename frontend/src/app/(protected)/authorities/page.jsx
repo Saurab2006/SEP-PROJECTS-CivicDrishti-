@@ -1,15 +1,18 @@
 ﻿'use client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { get, post } from '@/lib/api';
 import { relativeTime, cn } from '@/lib/format';
 import { toast } from 'sonner';
 import { Building2, Star, Plus, Loader2, X, Phone, Mail, MapPin, ChevronDown, ChevronUp, Trophy, Medal, Clock, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import LocationLeaderboard from '@/components/LocationLeaderboard';
+import { useNationalFeedback } from '@/lib/useNationalFeedback';
 
 export default function AuthoritiesPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const [tab, setTab] = useState('directory'); // 'directory' | 'leaderboard'
+  const [tab, setTab] = useState('directory'); // 'directory' | 'leaderboard' | 'budgetLeaderboard'
   const [authorities, setAuthorities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [districtFilter, setDistrictFilter] = useState('');
@@ -49,6 +52,9 @@ export default function AuthoritiesPage() {
         <button onClick={() => setTab('leaderboard')} className={cn('rounded-md px-4 py-2 text-sm font-black transition-colors', tab === 'leaderboard' ? 'bg-[#0f3d3e] text-white' : 'text-[#65706c] hover:text-[#102a2b]')}>
           Leaderboard
         </button>
+        <button onClick={() => setTab('budgetLeaderboard')} className={cn('rounded-md px-4 py-2 text-sm font-black transition-colors', tab === 'budgetLeaderboard' ? 'bg-[#0f3d3e] text-white' : 'text-[#65706c] hover:text-[#102a2b]')}>
+          Budget Leaderboard
+        </button>
       </div>
 
       {tab === 'directory' ? (
@@ -72,8 +78,10 @@ export default function AuthoritiesPage() {
 
           {showAddForm && <AddAuthorityForm onClose={() => setShowAddForm(false)} onCreated={() => { setShowAddForm(false); load(); }} />}
         </>
-      ) : (
+      ) : tab === 'leaderboard' ? (
         <Leaderboard />
+      ) : (
+        <BudgetLeaderboardTab />
       )}
     </div>
   );
@@ -117,6 +125,20 @@ function Leaderboard() {
         {rows.map((a, i) => <LeaderboardRow key={a._id} authority={a} rank={i + 1} />)}
       </div>
     </div>
+  );
+}
+
+function BudgetLeaderboardTab() {
+  const router = useRouter();
+  const { rows } = useNationalFeedback();
+  return (
+    <LocationLeaderboard
+      rows={rows}
+      title="Budget Leaderboard"
+      subtitle="All locations, ranked by citizen approval"
+      onViewAll={() => router.push('/budget')}
+      viewAllLabel="Open full feedback board in Public Budget"
+    />
   );
 }
 
