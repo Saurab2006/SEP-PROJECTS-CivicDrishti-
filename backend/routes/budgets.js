@@ -11,19 +11,6 @@ const { budgetDecisionEmail } = require('../utils/authEmails');
 
 const router = express.Router();
 
-function publicBudgetItem(i) {
-  return {
-    _id: i._id, title: i.title, department: i.department, sector: i.sector,
-    amount: i.amount, spent: i.spent || 0, status: i.status || 'planned',
-    completionOverride: i.completionOverride ?? null, province: i.province || deriveProvince(i.district), fiscalYear: i.fiscalYear, district: i.district,
-    municipality: i.municipality, ward: i.ward, page: i.page,
-    confidence: i.confidence, flagged: i.flagged, flagReason: i.flagReason,
-    flaggedAt: i.flaggedAt, documentId: i.document?._id, documentTitle: i.document?.title,
-  };
-}
-function csvEscape(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
-
-
 const PROVINCES = [
   { name: 'Koshi Province', code: 'P1', districts: ['Taplejung','Panchthar','Ilam','Jhapa','Morang','Sunsari','Dhankuta','Terhathum','Sankhuwasabha','Bhojpur','Solukhumbu','Okhaldhunga','Khotang','Udayapur'] },
   { name: 'Madhesh Province', code: 'P2', districts: ['Saptari','Siraha','Dhanusha','Mahottari','Sarlahi','Rautahat','Bara','Parsa'] },
@@ -41,6 +28,27 @@ function completionFor(row) {
   if (Number.isFinite(manual)) return Math.max(0, Math.min(100, manual));
   return STATUS_PERCENT[row.status] ?? 25;
 }
+
+// Physical progress = actual construction/work completion (status-derived).
+// Financial progress = % of allocated budget spent. Comparing the two is
+// what lets a citizen spot "80% spent but only 45% built" style problems.
+function publicBudgetItem(i) {
+  const allocated = i.amount || 0;
+  const spent = i.spent || 0;
+  const physicalProgress = completionFor(i);
+  const financialProgress = allocated ? Math.round((spent / allocated) * 1000) / 10 : 0;
+  return {
+    _id: i._id, title: i.title, department: i.department, sector: i.sector,
+    amount: i.amount, revisedAmount: i.revisedAmount ?? null, spent: i.spent || 0, status: i.status || 'planned',
+    completionOverride: i.completionOverride ?? null, province: i.province || deriveProvince(i.district), fiscalYear: i.fiscalYear, district: i.district,
+    municipality: i.municipality, ward: i.ward, page: i.page,
+    confidence: i.confidence, flagged: i.flagged, flagReason: i.flagReason,
+    flaggedAt: i.flaggedAt, documentId: i.document?._id, documentTitle: i.document?.title,
+    physicalProgress, financialProgress,
+  };
+}
+function csvEscape(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
+
 function emptyNode(level, name, parent = null) {
   return { id: `${level}:${parent || 'root'}:${name}`, level, name, parent, allocated: 0, spent: 0, completed: 0, remaining: 0, completion: 0, planned: 0, ongoing: 0, completedStage: 0, delayed: 0, projectCount: 0 };
 }
@@ -91,17 +99,93 @@ function buildTracking(items, projects) {
   const toArray = level => Array.from(maps[level].values()).map(finishNode).sort((a, b) => b.allocated - a.allocated || a.name.localeCompare(b.name));
   return { provinces: toArray('province'), districts: toArray('district'), municipalities: toArray('municipality'), wards: toArray('ward'), generatedAt: new Date().toISOString() };
 }
+
+function buildBudgetFilter(req) {
+  const filter = req.user.role === 'ward_rep' ? {} : { user: req.user._id };
+  if (req.user.role === 'ward_rep') {
+    const a = req.user.wardRepresentativeApplication || {};
+    filter.district = a.district || '__none__';
+    filter.ward = String(a.ward || '__none__');
+  }
+  const q = req.query;
+  if (q.province && q.province !== 'all') filter.province = q.province;
+  if (q.district && q.district !== 'all' && !filter.district) filter.district = q.district;
+  if (q.municipality && q.municipality !== 'all') filter.municipality = q.municipality;
+  if (q.ward && q.ward !== 'all' && !filter.ward) filter.ward = q.ward;
+  if (q.department && q.department !== 'all') filter.department = q.department;
+  if (q.sector && q.sector !== 'all') filter.sector = q.sector;
+  if (q.fiscalYear && q.fiscalYear !== 'all') filter.fiscalYear = q.fiscalYear;
+  if (q.project) filter.title = { $regex: q.project, $options: 'i' };
+  if (q.flagged === 'true') filter.flagged = true;
+  if (q.q) filter.$or = [
+    { title: { $regex: q.q, $options: 'i' } },
+    { department: { $regex: q.q, $options: 'i' } },
+    { district: { $regex: q.q, $options: 'i' } },
+    { municipality: { $regex: q.q, $options: 'i' } },
+  ];
+  return filter;
+}
+
 router.get('/export.csv', protect, async (req, res) => {
   try {
-    const items = await BudgetItem.find({ user: req.user._id }).sort({ fiscalYear: -1, amount: -1 }).limit(5000);
-    const headers = ['Title', 'Department', 'Sector', 'Amount', 'Fiscal Year', 'District', 'Municipality', 'Ward', 'Flagged'];
-    const rows = items.map(i => [i.title, i.department, i.sector, i.amount, i.fiscalYear, i.district, i.municipality, i.ward, i.flagged ? 'yes' : 'no'].map(csvEscape).join(','));
+    const filter = buildBudgetFilter(req);
+    const items = await BudgetItem.find(filter).sort({ fiscalYear: -1, amount: -1 }).limit(5000);
+    const headers = [
+      'Project', 'Department', 'Sector', 'Province', 'District', 'Municipality', 'Ward', 'Fiscal Year',
+      'Allocated Budget', 'Revised Budget', 'Actual Spending', 'Remaining', 'Utilization %', 'Variance', 'Physical Progress %', 'Status', 'Flagged',
+    ];
+    const rows = items.map(i => {
+      const allocated = i.amount || 0;
+      const spent = i.spent || 0;
+      const remaining = Math.max(0, allocated - spent);
+      const utilization = allocated ? Math.round((spent / allocated) * 1000) / 10 : 0;
+      const variance = allocated - spent;
+      return [
+        i.title, i.department, i.sector, i.province || deriveProvince(i.district), i.district, i.municipality, i.ward, i.fiscalYear,
+        allocated, i.revisedAmount ?? '', spent, remaining, `${utilization}%`, variance, `${completionFor(i)}%`, i.status || 'planned', i.flagged ? 'yes' : 'no',
+      ].map(csvEscape).join(',');
+    });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="govinsight-budget-export.csv"');
+    res.setHeader('Content-Disposition', 'attachment; filename="civicdrishti-budget-export.csv"');
     res.send([headers.map(csvEscape).join(','), ...rows].join('\n'));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+router.get('/export.json', protect, async (req, res) => {
+  try {
+    const filter = buildBudgetFilter(req);
+    const items = await BudgetItem.find(filter).sort({ fiscalYear: -1, amount: -1 }).limit(5000);
+    const rows = items.map(i => {
+      const allocated = i.amount || 0;
+      const spent = i.spent || 0;
+      return {
+        title: i.title, department: i.department, sector: i.sector,
+        province: i.province || deriveProvince(i.district), district: i.district, municipality: i.municipality, ward: i.ward,
+        fiscalYear: i.fiscalYear, allocated, revisedAmount: i.revisedAmount ?? null, spent, remaining: Math.max(0, allocated - spent),
+        utilization: allocated ? Math.round((spent / allocated) * 1000) / 10 : 0,
+        variance: allocated - spent, physicalProgress: completionFor(i), status: i.status || 'planned', flagged: !!i.flagged,
+      };
+    });
+    const totals = rows.reduce((acc, r) => ({ allocated: acc.allocated + r.allocated, spent: acc.spent + r.spent, remaining: acc.remaining + r.remaining }), { allocated: 0, spent: 0, remaining: 0 });
+    res.json({ items: rows, totals, generatedAt: new Date().toISOString() });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/meta/departments', protect, async (req, res) => {
+  try {
+    const filter = { user: req.user._id };
+    const departments = await BudgetItem.distinct('department', filter);
+    res.json({ departments: departments.filter(Boolean).sort() });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/meta/fiscal-years', protect, async (req, res) => {
+  try {
+    const filter = { user: req.user._id };
+    const fiscalYears = await BudgetItem.distinct('fiscalYear', filter);
+    res.json({ fiscalYears: fiscalYears.filter(Boolean).sort().reverse() });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 router.get('/tracking', protect, async (req, res) => {
   try {
@@ -115,20 +199,7 @@ router.get('/tracking', protect, async (req, res) => {
 });
 router.get('/', protect, async (req, res) => {
   try {
-    const filter = req.user.role === 'ward_rep' ? {} : { user: req.user._id };
-    if (req.user.role === 'ward_rep') { const a = req.user.wardRepresentativeApplication || {}; filter.district = a.district || '__none__'; filter.ward = String(a.ward || '__none__'); }
-    if (req.query.sector && req.query.sector !== 'all') filter.sector = req.query.sector;
-    if (req.query.fiscalYear && req.query.fiscalYear !== 'all') filter.fiscalYear = req.query.fiscalYear;
-    if (req.query.district && req.query.district !== 'all') filter.district = req.query.district;
-    if (req.query.ward && req.query.ward !== 'all') filter.ward = req.query.ward;
-    if (req.query.flagged === 'true') filter.flagged = true;
-    if (req.query.q) filter.$or = [
-      { title: { $regex: req.query.q, $options: 'i' } },
-      { department: { $regex: req.query.q, $options: 'i' } },
-      { district: { $regex: req.query.q, $options: 'i' } },
-      { municipality: { $regex: req.query.q, $options: 'i' } },
-    ];
-
+    const filter = buildBudgetFilter(req);
     const items = await BudgetItem.find(filter).sort({ amount: -1 }).limit(Number(req.query.limit) || 100).populate('document', 'title');
     res.json({ items: items.map(publicBudgetItem) });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -157,13 +228,15 @@ router.get('/changes', protect, async (req, res) => {
 
 router.post('/changes', protect, requireRole('official', 'ward_rep'), async (req, res) => {
   try {
-    let { title, department, sector, amount, fiscalYear, district, municipality, ward, reason } = req.body;
+    let { title, department, sector, amount, revisedAmount, fiscalYear, district, municipality, ward, reason } = req.body;
     if (req.user.role === 'ward_rep') { const a = req.user.wardRepresentativeApplication || {}; district = a.district || district; municipality = a.municipality || municipality; ward = a.ward || ward; }
     if (!title || !department || !sector || !fiscalYear) return res.status(422).json({ error: 'Title, department, sector, and fiscal year are required' });
     const amountNum = Number(amount);
     if (!Number.isFinite(amountNum) || amountNum < 0) return res.status(422).json({ error: 'Amount must be a valid positive number' });
+    const revisedNum = revisedAmount !== undefined && revisedAmount !== '' ? Number(revisedAmount) : null;
+    if (revisedNum !== null && (!Number.isFinite(revisedNum) || revisedNum < 0)) return res.status(422).json({ error: 'Revised amount must be a valid positive number' });
     const doc = await Document.create({ user: req.user._id, title: `Proposed record - ${title}`, fileName: 'manual-entry', docType: 'budget', fiscalYear, district: district || '', municipality: municipality || '', totalBudget: amountNum, summary: 'Manual budget record proposed by official.' });
-    const change = await ChangeRequest.create({ user: req.user._id, budgetItem: null, type: 'create', requestedBy: req.user._id, reason: reason || '', proposed: { title, department, sector, amount: amountNum, fiscalYear, district: district || '', municipality: municipality || '', ward: ward || '', document: doc._id } });
+    const change = await ChangeRequest.create({ user: req.user._id, budgetItem: null, type: 'create', requestedBy: req.user._id, reason: reason || '', proposed: { title, department, sector, amount: amountNum, revisedAmount: revisedNum, fiscalYear, district: district || '', municipality: municipality || '', ward: ward || '', document: doc._id } });
     await Activity.create({ user: req.user._id, type: 'change-request', message: `Proposed a new budget record: "${title}"` });
     res.status(201).json({ change });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -174,13 +247,17 @@ router.post('/:id/changes', protect, requireRole('official', 'ward_rep'), async 
     const budgetFilter = req.user.role === 'ward_rep' ? { _id: req.params.id, district: req.user.wardRepresentativeApplication?.district || '__none__', ward: String(req.user.wardRepresentativeApplication?.ward || '__none__') } : { _id: req.params.id, user: req.user._id };
     const budgetItem = await BudgetItem.findOne(budgetFilter);
     if (!budgetItem) return res.status(404).json({ error: 'Budget item not found' });
-    const allowed = ['title', 'department', 'sector', 'amount', 'fiscalYear', 'district', 'municipality', 'ward'];
+    const allowed = ['title', 'department', 'sector', 'amount', 'revisedAmount', 'fiscalYear', 'district', 'municipality', 'ward'];
     const proposed = {};
     allowed.forEach(key => { if (req.body[key] !== undefined && req.body[key] !== '') proposed[key] = req.body[key]; });
     if (req.user.role === 'ward_rep') { const a = req.user.wardRepresentativeApplication || {}; proposed.district = a.district || proposed.district; proposed.municipality = a.municipality || proposed.municipality; proposed.ward = a.ward || proposed.ward; }
     if (proposed.amount !== undefined) {
       proposed.amount = Number(proposed.amount);
       if (!Number.isFinite(proposed.amount) || proposed.amount < 0) return res.status(422).json({ error: 'Amount must be a valid positive number' });
+    }
+    if (proposed.revisedAmount !== undefined) {
+      proposed.revisedAmount = Number(proposed.revisedAmount);
+      if (!Number.isFinite(proposed.revisedAmount) || proposed.revisedAmount < 0) return res.status(422).json({ error: 'Revised amount must be a valid positive number' });
     }
     if (Object.keys(proposed).length === 0) return res.status(422).json({ error: 'Add at least one proposed change' });
     const change = await ChangeRequest.create({ user: budgetItem.user, budgetItem: budgetItem._id, type: 'update', requestedBy: req.user._id, reason: req.body.reason || '', proposed });
@@ -206,7 +283,7 @@ router.patch('/changes/:id', protect, requireRole('admin'), async (req, res) => 
     if (status === 'approved') {
       if (change.type === 'create' || !change.budgetItem) {
         const p = change.proposed || {};
-        await BudgetItem.create({ user: change.user, document: p.document, title: p.title, department: p.department, sector: p.sector, amount: p.amount, fiscalYear: p.fiscalYear, district: p.district || '', municipality: p.municipality || '', ward: p.ward || '', page: 1, confidence: 1 });
+        await BudgetItem.create({ user: change.user, document: p.document, title: p.title, department: p.department, sector: p.sector, amount: p.amount, revisedAmount: p.revisedAmount ?? null, fiscalYear: p.fiscalYear, district: p.district || '', municipality: p.municipality || '', ward: p.ward || '', page: 1, confidence: 1 });
         await Activity.create({ user: change.user, type: 'approval', message: `Approved new budget record "${p.title}"` });
       } else {
         await BudgetItem.findByIdAndUpdate(change.budgetItem._id, change.proposed, { new: true });
@@ -240,7 +317,3 @@ router.delete('/:id/flag', protect, requireRole('admin'), async (req, res) => {
 });
 
 module.exports = router;
-
-
-
-

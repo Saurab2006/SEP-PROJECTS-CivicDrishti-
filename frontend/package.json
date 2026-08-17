@@ -13,6 +13,8 @@
     "clsx": "^2.1.1",
     "face-api.js": "^0.22.2",
     "framer-motion": "^11.18.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "lucide-react": "^1.28.0",
     "maplibre-gl": "^4.7.1",
     "next": "^14.2.29",

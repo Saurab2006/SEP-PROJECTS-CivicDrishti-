@@ -7,6 +7,7 @@ const budgetItemSchema = new mongoose.Schema({
   department: { type: String, required: true },
   sector:     { type: String, required: true },
   amount:     { type: Number, required: true, default: 0 },
+  revisedAmount: { type: Number, default: null },
   spent:      { type: Number, default: 0 },
   status:     { type: String, enum: ['planned', 'ongoing', 'completed', 'delayed'], default: 'planned' },
   completionOverride: { type: Number, min: 0, max: 100, default: null },
@@ -29,7 +30,3 @@ budgetItemSchema.index({ province: 1, district: 1, municipality: 1, ward: 1 });
 budgetItemSchema.index({ title: 'text', department: 'text', district: 'text', municipality: 'text', ward: 'text' });
 
 module.exports = mongoose.model('BudgetItem', budgetItemSchema);
-
-
-
-
