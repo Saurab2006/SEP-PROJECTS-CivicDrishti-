@@ -42,6 +42,27 @@ function publicBudgetItem(i) {
   };
 }
 function csvEscape(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
+
+function buildBudgetFilter(req) {
+  const q = req.query || {};
+  const filter = {};
+  if (q.province && q.province !== 'all') filter.province = q.province;
+  if (q.district && q.district !== 'all') filter.district = q.district;
+  if (q.municipality && q.municipality !== 'all') filter.municipality = q.municipality;
+  if (q.ward && q.ward !== 'all') filter.ward = q.ward;
+  if (q.department && q.department !== 'all') filter.department = q.department;
+  if (q.sector && q.sector !== 'all') filter.sector = q.sector;
+  if (q.fiscalYear && q.fiscalYear !== 'all') filter.fiscalYear = q.fiscalYear;
+  if (q.project) filter.title = { $regex: q.project, $options: 'i' };
+  if (q.q) filter.$or = [
+    { title: { $regex: q.q, $options: 'i' } },
+    { department: { $regex: q.q, $options: 'i' } },
+    { district: { $regex: q.q, $options: 'i' } },
+    { municipality: { $regex: q.q, $options: 'i' } },
+  ];
+  return filter;
+}
+
 function numericValue(value, fallback = 0) {
   if (value === undefined || value === null || value === '') return fallback;
   const n = Number(value);
@@ -181,6 +202,20 @@ router.get('/export.csv', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+
+router.get('/meta/departments', protect, async (req, res) => {
+  try {
+    const departments = await BudgetItem.distinct('department', {});
+    res.json({ departments: departments.filter(Boolean).sort() });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/meta/fiscal-years', protect, async (req, res) => {
+  try {
+    const fiscalYears = await BudgetItem.distinct('fiscalYear', {});
+    res.json({ fiscalYears: fiscalYears.filter(Boolean).sort().reverse() });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
 router.get('/tracking', protect, async (req, res) => {
   try {

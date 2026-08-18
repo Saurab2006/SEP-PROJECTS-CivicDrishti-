@@ -1,7 +1,7 @@
 ﻿'use client';
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { get, post, saveToken, clearToken, getToken } from '@/lib/api';
+import { get, post, patch, saveToken, clearToken, getToken } from '@/lib/api';
 
 const AuthContext = createContext(null);
 
@@ -51,13 +51,25 @@ export function AuthProvider({ children }) {
 
   const resendEmailOtp = useCallback(async () => post('/api/auth/resend-email-otp', {}), []);
 
+  const verifyIdentity = useCallback(async (values) => {
+    const data = await post('/api/auth/verify-identity', values);
+    setUser(data.user);
+    return data.user;
+  }, []);
+
+  const updateLocation = useCallback(async (values) => {
+    const data = await patch('/api/auth/update-location', values);
+    setUser(data.user);
+    return data.user;
+  }, []);
+
   const logout = useCallback(() => {
     clearToken();
     setUser(null);
     router.push('/login');
   }, [router]);
 
-  const value = useMemo(() => ({ user, loading, login, signup, logout, verifyEmail, resendEmailOtp }), [user, loading, login, signup, logout, verifyEmail, resendEmailOtp]);
+  const value = useMemo(() => ({ user, loading, login, signup, logout, verifyEmail, resendEmailOtp, verifyIdentity, updateLocation }), [user, loading, login, signup, logout, verifyEmail, resendEmailOtp, verifyIdentity, updateLocation]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

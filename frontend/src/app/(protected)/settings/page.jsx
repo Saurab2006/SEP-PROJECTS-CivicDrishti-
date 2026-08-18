@@ -5,19 +5,38 @@ import { useLanguage } from '@/context/LanguageContext';
 import { initials } from '@/lib/format';
 import { post } from '@/lib/api';
 import { toast } from 'sonner';
-import { Bell, BellOff, Download, Languages, MailCheck, Megaphone, Send, Smartphone, Sun } from 'lucide-react';
+import { Bell, BellOff, Camera, CheckCircle2, Download, FileCheck2, Languages, MailCheck, MapPinned, Megaphone, Send, ShieldCheck, Smartphone, Sun, UploadCloud, X } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useInstallPrompt } from '@/lib/useInstallPrompt';
 import { getPushSubscriptionState, subscribeToPush, unsubscribeFromPush } from '@/lib/push';
+import SelfieCapture from '@/components/SelfieCapture';
+import { loadFaceModels, getFaceDescriptor, compareDescriptors, loadImageFromDataUrl } from '@/lib/faceMatch';
+
+function fileToDataUrl(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('Could not read the file')); reader.readAsDataURL(file); }); }
 
 export default function SettingsPage() {
-  const { user, verifyEmail, resendEmailOtp } = useAuth();
+  const { user, verifyEmail, resendEmailOtp, verifyIdentity, updateLocation } = useAuth();
   const { locale, setLocale, t } = useLanguage();
   const [otp, setOtp] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [notice, setNotice] = useState({ title: '', message: '', priority: 'important', audience: 'all', durationValue: 24, durationUnit: 'hours' });
   const [sending, setSending] = useState(false);
+  const [docFile, setDocFile] = useState(null);
+  const [docError, setDocError] = useState('');
+  const [citizenshipNumber, setCitizenshipNumber] = useState('');
+  const [citizenshipNumberError, setCitizenshipNumberError] = useState('');
+  const [selfieDataUrl, setSelfieDataUrl] = useState(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [faceChecking, setFaceChecking] = useState(false);
+  const [faceError, setFaceError] = useState('');
+  const [address, setAddress] = useState({ province: user?.civicLocation?.province || '', district: user?.civicLocation?.district || '', municipality: user?.civicLocation?.municipality || '', ward: user?.civicLocation?.ward || '' });
+  const [addressSaving, setAddressSaving] = useState(false);
+  const [addressError, setAddressError] = useState('');
   if (!user) return null;
+
+  const ADDRESS_COOLDOWN_DAYS = 180;
+  const nextAddressChangeAt = user.lastAddressChangeAt ? new Date(new Date(user.lastAddressChangeAt).getTime() + ADDRESS_COOLDOWN_DAYS * 24 * 60 * 60 * 1000) : null;
+  const addressLocked = !!(nextAddressChangeAt && nextAddressChangeAt.getTime() > Date.now());
 
   const submitOtp = async (e) => {
     e.preventDefault();
@@ -25,6 +44,54 @@ export default function SettingsPage() {
     try { await verifyEmail(otp); setOtp(''); toast.success(t('settings.emailVerified')); }
     catch (err) { toast.error(err.message); }
     setVerifying(false);
+  };
+
+  const handleDocChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!/^image\/|^application\/pdf$/.test(file.type)) { setDocError('Upload an image or PDF'); return; }
+    if (file.size > 8 * 1024 * 1024) { setDocError('File is too large. Max 8MB'); return; }
+    setDocError('');
+    try { setDocFile({ name: file.name, dataUrl: await fileToDataUrl(file) }); }
+    catch { setDocError('Could not read that file. Try again.'); }
+  };
+
+  const submitVerification = async () => {
+    setFaceError('');
+    setCitizenshipNumberError('');
+    if (!docFile) { setDocError('Citizenship certificate or national ID is required'); return; }
+    if (!citizenshipNumber.trim()) { setCitizenshipNumberError('Citizenship number is required'); return; }
+    if (!selfieDataUrl) { setFaceError('Please take a live selfie to verify your identity.'); return; }
+    setFaceChecking(true);
+    let faceMatchScore = null;
+    try {
+      await loadFaceModels();
+      const idImg = await loadImageFromDataUrl(docFile.dataUrl);
+      const selfieImg = await loadImageFromDataUrl(selfieDataUrl);
+      const idDescriptor = await getFaceDescriptor(idImg);
+      const selfieDescriptor = await getFaceDescriptor(selfieImg);
+      if (!idDescriptor) { setFaceError('No face detected on your ID photo. Please upload a clearer photo.'); setFaceChecking(false); return; }
+      if (!selfieDescriptor) { setFaceError('No face detected in your selfie. Please try again.'); setFaceChecking(false); return; }
+      const distance = compareDescriptors(idDescriptor, selfieDescriptor);
+      if (distance > 0.6) { setFaceError("Your live photo doesn't match your ID. Please try again."); setFaceChecking(false); return; }
+      faceMatchScore = 1 - distance;
+    } catch { setFaceError('Could not verify your face. Please try again.'); setFaceChecking(false); return; }
+    try {
+      await verifyIdentity({ citizenshipDoc: docFile.dataUrl, citizenshipDocName: docFile.name, citizenshipNumber: citizenshipNumber.trim(), selfiePhoto: selfieDataUrl, faceMatchScore });
+      toast.success('Identity verified');
+      setDocFile(null); setSelfieDataUrl(null); setCitizenshipNumber('');
+    } catch (err) { setCitizenshipNumberError(err.message); }
+    setFaceChecking(false);
+  };
+
+  const submitAddress = async (e) => {
+    e.preventDefault();
+    setAddressError('');
+    if (!address.district.trim() || !address.municipality.trim() || !address.ward.trim()) { setAddressError('District, municipality and ward are required'); return; }
+    setAddressSaving(true);
+    try { await updateLocation(address); toast.success('Address updated'); }
+    catch (err) { setAddressError(err.message); }
+    setAddressSaving(false);
   };
 
   const resendOtp = async () => {
@@ -93,6 +160,37 @@ export default function SettingsPage() {
       </div>
 
       <AppNotificationsCard t={t} />
+
+      {['researcher', 'ward_rep'].includes(user.role) && <form onSubmit={submitAddress} className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm">
+        <h2 className="flex items-center gap-2 text-sm font-black text-[#102a2b]"><MapPinned className="h-4 w-4 text-[#dc143c]" />Your ward / address</h2>
+        <p className="mt-1 text-sm text-[#65706c]">Update your civic address so local reports and supports count in the correct ward.</p>
+        {addressLocked && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">You can change your address again on {nextAddressChangeAt.toLocaleDateString(locale === 'ne' ? 'ne-NP' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Address changes are limited to once every 6 months.</p>}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <input disabled={addressLocked} value={address.province} onChange={e => setAddress(a => ({ ...a, province: e.target.value }))} placeholder="Province" className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:opacity-50" />
+          <input disabled={addressLocked} value={address.district} onChange={e => setAddress(a => ({ ...a, district: e.target.value }))} placeholder="District" className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:opacity-50" />
+          <input disabled={addressLocked} value={address.municipality} onChange={e => setAddress(a => ({ ...a, municipality: e.target.value }))} placeholder="Municipality" className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:opacity-50" />
+          <input disabled={addressLocked} type="number" min="1" value={address.ward} onChange={e => setAddress(a => ({ ...a, ward: e.target.value }))} placeholder="Ward" className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:opacity-50" />
+        </div>
+        {addressError && <span className="mt-2 block text-xs text-[#dc143c]">{addressError}</span>}
+        <button type="submit" disabled={addressSaving || addressLocked} className="mt-4 h-10 rounded-lg bg-[#0f3d3e] px-4 text-sm font-black text-white disabled:opacity-50">{addressSaving ? 'Saving...' : 'Save address'}</button>
+      </form>}
+
+      {['researcher', 'ward_rep'].includes(user.role) && user.verificationStatus !== 'verified' && <div className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm">
+        <h2 className="flex items-center gap-2 text-sm font-black text-[#102a2b]"><ShieldCheck className="h-4 w-4 text-[#dc143c]" />Verify your identity</h2>
+        <p className="mt-1 text-sm text-[#65706c]">Upload your citizenship certificate or national ID, enter your citizenship number, then take a live selfie.</p>
+        <div className="mt-4 grid gap-3">
+          <input value={citizenshipNumber} onChange={e => setCitizenshipNumber(e.target.value)} placeholder="Citizenship number" className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e]" />
+          {citizenshipNumberError && <span className="text-xs text-[#dc143c]">{citizenshipNumberError}</span>}
+          {!docFile ? <label className="flex h-24 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[#ded6c8] bg-[#fffaf2] text-sm text-[#65706c]"><UploadCloud className="h-5 w-5" />Upload image or PDF, max 8MB<input type="file" accept="image/*,application/pdf" onChange={handleDocChange} className="hidden" /></label> : <div className="flex h-10 items-center justify-between rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm"><span className="flex items-center gap-2"><FileCheck2 className="h-4 w-4" />{docFile.name}</span><button type="button" onClick={() => setDocFile(null)}><X className="h-4 w-4" /></button></div>}
+          {docError && <span className="text-xs text-[#dc143c]">{docError}</span>}
+          {!selfieDataUrl ? <button type="button" onClick={() => setShowCamera(true)} className="flex h-24 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-[#ded6c8] bg-[#fffaf2] text-sm text-[#65706c]"><Camera className="h-5 w-5" />Click to take a live photo</button> : <div className="flex h-10 items-center justify-between rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm"><span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-[#0f3d3e]" />Selfie captured</span><button type="button" onClick={() => setSelfieDataUrl(null)}><X className="h-4 w-4" /></button></div>}
+          {faceError && <span className="text-xs text-[#dc143c]">{faceError}</span>}
+          {faceChecking && <span className="text-xs text-[#65706c]">Verifying your face, please wait...</span>}
+        </div>
+        {showCamera && <SelfieCapture onCapture={(dataUrl) => { setSelfieDataUrl(dataUrl); setShowCamera(false); }} onClose={() => setShowCamera(false)} />}
+        <button type="button" disabled={faceChecking} onClick={submitVerification} className="mt-4 h-10 rounded-lg bg-[#dc143c] px-4 text-sm font-black text-white disabled:opacity-50">{faceChecking ? 'Verifying...' : 'Verify identity'}</button>
+      </div>}
+
 
       {!user.emailVerified && <form onSubmit={submitOtp} className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm">
         <h2 className="flex items-center gap-2 text-sm font-black text-[#102a2b]"><MailCheck className="h-4 w-4 text-[#dc143c]" />{t('settings.verifyEmail')}</h2>

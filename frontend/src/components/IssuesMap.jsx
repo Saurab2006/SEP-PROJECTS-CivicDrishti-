@@ -12,21 +12,25 @@ const DEFAULT_CENTER = [85.324, 27.7172]; // Kathmandu
 const STATUS_META = {
   unresolved: { color: '#dc2626', label: 'All unresolved' },
   inProgress: { color: '#f97316', label: 'All in progress' },
+  merged: { color: '#7c3aed', label: 'Merged reports' },
   resolved: { color: '#16a34a', label: 'Latest 5 resolved' },
 };
+const LEGEND_ORDER = ['unresolved', 'inProgress', 'merged', 'resolved'];
 
 function reportCode(id) {
   return 'IS-' + String(id || '').slice(-4).toUpperCase();
 }
 
 function getMapStatus(report) {
+  if (Number(report.confirmations || 1) > 1 && report.status !== 'completed') return 'merged';
   if (report.status === 'completed') return 'resolved';
   if (report.status === 'in-progress' || report.status === 'assigned') return 'inProgress';
   if (report.status === 'rejected' || report.status === 'duplicate') return null;
   return 'unresolved';
 }
 
-function statusLabel(status) {
+function statusLabel(status, report) {
+  if (Number(report?.confirmations || 1) > 1 && status !== 'completed') return `merged (${report.confirmations} reports)`;
   if (status === 'completed') return 'resolved';
   if (status === 'in-progress') return 'in progress';
   return String(status || 'unresolved').replace('-', ' ');
@@ -87,7 +91,7 @@ export default function IssuesMap({ reports, height = 380, selectedId, onSelect 
       el.style.boxShadow = '0 1px 4px rgba(0,0,0,.35)';
       el.style.cursor = 'pointer';
       el.style.background = STATUS_META[mapStatus]?.color || STATUS_META.unresolved.color;
-      el.setAttribute('aria-label', `${r.title || 'Issue'} - ${statusLabel(r.status)}`);
+      el.setAttribute('aria-label', `${r.title || 'Issue'} - ${statusLabel(r.status, r)}`);
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         setActiveReport(r);
@@ -130,18 +134,20 @@ export default function IssuesMap({ reports, height = 380, selectedId, onSelect 
       {activeReport && (
         <div className="absolute bottom-3 left-3 right-3 flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-3 shadow-lg sm:right-auto sm:w-80">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{reportCode(activeReport._id)} - {statusLabel(activeReport.status)}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{reportCode(activeReport._id)} - {statusLabel(activeReport.status, activeReport)}</p>
             <p className="mt-0.5 truncate text-sm font-semibold text-gray-900">{activeReport.title}</p>
             <p className="mt-0.5 truncate text-xs text-gray-500">{activeReport.location?.address}{activeReport.location?.district ? `, ${activeReport.location.district}` : ''}</p>
+            {Number(activeReport.confirmations || 1) > 1 && <p className="mt-1 text-xs font-semibold text-violet-700">{activeReport.confirmations} citizen reports merged into one issue</p>}
             <Link href={`/issues/${activeReport._id}`} className="mt-1.5 inline-block text-xs font-semibold text-brand-600 hover:underline">View details</Link>
           </div>
           <button onClick={() => setActiveReport(null)} className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-50" aria-label="Close issue preview"><X className="h-3.5 w-3.5" /></button>
         </div>
       )}
-      <div className="absolute left-3 top-3 flex flex-wrap gap-2 rounded-lg bg-white/90 px-2.5 py-1.5 text-[10px] font-semibold text-gray-600 shadow-sm backdrop-blur">
-        {Object.entries(STATUS_META).map(([key, meta]) => (
-          <span key={key} className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />{meta.label}</span>
-        ))}
+      <div className="absolute left-3 right-3 top-3 flex flex-wrap gap-1.5 rounded-lg bg-white/95 px-2.5 py-1.5 text-[10px] font-semibold text-gray-600 shadow-sm backdrop-blur sm:right-auto">
+        {LEGEND_ORDER.map((key) => {
+          const meta = STATUS_META[key];
+          return <span key={key} className="flex items-center gap-1 whitespace-nowrap rounded-md px-1"><span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />{meta.label}</span>;
+        })}
       </div>
     </div>
   );

@@ -31,10 +31,14 @@ const userSchema = new mongoose.Schema({
     address: { type: String, default: '', trim: true },
   },
 
+  // When the user last changed their ward/address via Settings. Used to enforce a cooldown between changes.
+  lastAddressChangeAt: { type: Date, default: null },
+
   // Identity verification (required at signup for researcher/citizen accounts).
   // Lets admins/analysts trace a report back to a verified identity if it's
   // ever flagged as fake.
   citizenshipDoc:     { type: String, default: '' }, // base64 data URL of the uploaded ID image/PDF
+  citizenshipNumber:  { type: String, default: '' }, // used to stop one person creating multiple accounts
   selfiePhoto:        { type: String, default: '' }, // base64 selfie image for face match
   selfiePhotoName:    { type: String, default: '' },
   faceMatchScore: { type: Number, default: null }, // similarity score, 0 to 1 
@@ -69,6 +73,7 @@ userSchema.index({ role: 1, status: 1 });
 userSchema.index({ phone: 1 });
 userSchema.index({ 'civicLocation.province': 1, 'civicLocation.district': 1, 'civicLocation.municipality': 1, 'civicLocation.ward': 1 });
 userSchema.index({ 'municipalityHeadProfile.district': 1, 'municipalityHeadProfile.municipality': 1 });
+userSchema.index({ citizenshipNumber: 1 }, { unique: true, partialFilterExpression: { citizenshipNumber: { $type: 'string', $ne: '' } } });
 
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
@@ -92,9 +97,11 @@ userSchema.methods.toPublic = function () {
     emailVerified: this.emailVerified,
     phone: this.phone,
     civicLocation: this.civicLocation,
+    lastAddressChangeAt: this.lastAddressChangeAt,
     municipalityHeadProfile: this.municipalityHeadProfile,
     verificationStatus: this.verificationStatus,
     hasCitizenshipDoc: !!this.citizenshipDoc,
+    hasCitizenshipNumber: !!this.citizenshipNumber,
     faceMatchScore: this.faceMatchScore,
     faceVerifiedAt: this.faceVerifiedAt,
     wardRepresentativeApplication: this.wardRepresentativeApplication,

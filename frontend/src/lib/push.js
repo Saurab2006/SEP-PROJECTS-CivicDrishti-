@@ -16,7 +16,16 @@ export function isPushSupported() {
 
 async function getServiceWorkerRegistration() {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null;
-  return (await navigator.serviceWorker.getRegistration()) || null;
+  const existing = await navigator.serviceWorker.getRegistration('/');
+  if (existing) return existing;
+
+  const registered = await navigator.serviceWorker.register('/sw.js').catch(() => null);
+  if (registered) return registered;
+
+  return Promise.race([
+    navigator.serviceWorker.ready.catch(() => null),
+    new Promise(resolve => setTimeout(() => resolve(null), 2500)),
+  ]);
 }
 
 // Reads current support/permission/subscription state without prompting for
@@ -35,7 +44,7 @@ export async function getPushSubscriptionState() {
 export async function subscribeToPush() {
   if (!isPushSupported()) throw new Error("Push notifications aren't supported on this browser.");
   const registration = await getServiceWorkerRegistration();
-  if (!registration) throw new Error("The installable app isn't active yet — reload the page and try again.");
+  if (!registration) throw new Error('App notifications could not start. Reload the page once, then try Enable again.');
 
   const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('Notifications are blocked in your browser settings.');

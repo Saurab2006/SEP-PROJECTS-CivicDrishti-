@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { get, patch, post, getToken } from '@/lib/api';
 import { formatNPR, cn, relativeTime, initials } from '@/lib/format';
 import { useAuth } from '@/context/AuthContext';
-import { Check, ChevronRight, Download, Eye, ListTree, Map, MapPin, MessageSquare, Search, Send, SlidersHorizontal, Table2, ThumbsDown, ThumbsUp, User, X } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, ChevronRight, Download, Eye, FileText, ListTree, Map, MapPin, MessageSquare, Search, Send, SlidersHorizontal, Table2, ThumbsDown, ThumbsUp, TrendingDown, TrendingUp, User, X } from 'lucide-react';
 import { toast } from 'sonner';
 import Pagination from '@/components/Pagination';
 import CommunityFeedbackBoard from '@/components/CommunityFeedbackBoard';
@@ -59,6 +59,7 @@ export default function BudgetPage() {
   const [proposal, setProposal] = useState(emptyProposal);
   const [budgetPage, setBudgetPage] = useState(1);
   const [budgetLimit, setBudgetLimit] = useState(8);
+  const [varianceOpen, setVarianceOpen] = useState(false);
 
   const canPropose = user?.role === 'municipality_head' || user?.role === 'ward_rep';
   const isWardRep = user?.role === 'ward_rep';
@@ -141,9 +142,21 @@ export default function BudgetPage() {
     setProposal(isWardRep ? { ...emptyProposal, district: a.district || '', municipality: a.municipality || '', ward: a.ward || '' } : emptyProposal);
   };
 
+  const buildExportParams = () => {
+    const params = new URLSearchParams();
+    const [province, district, municipality, ward] = path;
+    if (province) params.set('province', province.name);
+    if (district) params.set('district', district.name);
+    if (municipality) params.set('municipality', municipality.name);
+    if (ward) params.set('ward', wardValue(ward.name));
+    if (q.trim()) params.set('project', q.trim());
+    return params;
+  };
+
   const downloadCsv = async () => {
     try {
-      const res = await fetch('/api/budgets/export.csv', { headers: { Authorization: `Bearer ${getToken() || ''}` } });
+      const params = buildExportParams();
+      const res = await fetch('/api/budgets/export.csv?' + params.toString(), { headers: { Authorization: `Bearer ${getToken() || ''}` } });
       if (!res.ok) throw new Error('Could not export CSV');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -156,6 +169,23 @@ export default function BudgetPage() {
       URL.revokeObjectURL(url);
       toast.success('Budget CSV downloaded');
     } catch (err) { toast.error(err.message); }
+  };
+
+
+  const downloadPdf = async () => {
+    try {
+      const params = buildExportParams();
+      const res = await fetch('/api/budgets/export.json?' + params.toString(), { headers: { Authorization: 'Bearer ' + (getToken() || '') } });
+      if (!res.ok) throw new Error('Could not fetch export data');
+      const { items: rows, totals, generatedAt } = await res.json();
+      const htmlRows = rows.map(r => '<tr><td>' + (r.title || '') + '</td><td>' + (r.department || '') + '</td><td>' + (r.district || '') + '</td><td>' + (r.municipality || '') + '</td><td>' + (r.ward || '') + '</td><td>' + (r.fiscalYear || '') + '</td><td>' + formatNPR(r.allocated) + '</td><td>' + formatNPR(r.spent) + '</td><td>' + formatNPR(r.remaining) + '</td><td>' + r.utilization + '%</td><td>' + (r.status || '') + '</td></tr>').join('');
+      const report = '<!doctype html><html><head><title>Civicdrishti Budget Report</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#102a2b}h1{font-size:20px;margin:0 0 6px}p{margin:4px 0;color:#50616f}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:11px}th,td{border:1px solid #d8e0e8;padding:6px;text-align:left;vertical-align:top}th{background:#0f3d3e;color:white}.totals{display:flex;gap:12px;margin-top:14px}.totals div{border:1px solid #d8e0e8;border-radius:8px;padding:8px 12px}@media print{button{display:none}}</style></head><body><button onclick="window.print()">Save / Print PDF</button><h1>Civicdrishti - Public Budget Transparency</h1><p>Generated: ' + new Date(generatedAt).toLocaleString() + '</p><div class="totals"><div>Allocated: ' + formatNPR(totals.allocated) + '</div><div>Spent: ' + formatNPR(totals.spent) + '</div><div>Remaining: ' + formatNPR(totals.remaining) + '</div></div><table><thead><tr><th>Project</th><th>Department</th><th>District</th><th>Municipality</th><th>Ward</th><th>FY</th><th>Allocated</th><th>Spent</th><th>Remaining</th><th>Util %</th><th>Status</th></tr></thead><tbody>' + htmlRows + '</tbody></table><script>setTimeout(function(){window.print()},300)<\/script></body></html>';
+      const win = window.open('', '_blank');
+      if (!win) throw new Error('Popup blocked. Allow popups to export PDF.');
+      win.document.write(report);
+      win.document.close();
+      toast.success('PDF report opened');
+    } catch (err) { toast.error(err.message || 'Could not generate PDF'); }
   };
 
   const submitProposal = async (event) => {
@@ -221,6 +251,7 @@ export default function BudgetPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={downloadCsv} className="flex h-10 items-center gap-2 rounded-lg border border-[#ded6c8] bg-white px-4 text-sm font-medium text-[#0f3d3e] hover:bg-[#fffaf2]"><Download className="h-4 w-4" />Export CSV</button>
+          <button onClick={downloadPdf} className="flex h-10 items-center gap-2 rounded-lg border border-[#ded6c8] bg-white px-4 text-sm font-medium text-[#0f3d3e] hover:bg-[#fffaf2]"><FileText className="h-4 w-4" />PDF</button>
           {canPropose && <button onClick={startCreate} className="h-10 rounded-lg bg-[#dc143c] px-4 text-sm font-medium text-white hover:bg-[#b80f31]">Add budget record</button>}
         </div>
       </div>
@@ -237,6 +268,18 @@ export default function BudgetPage() {
       </div>
 
       <CommunityFeedbackBoard />
+
+      <div className="rounded-lg border border-[#ded6c8] bg-white shadow-sm">
+        <button type="button" onClick={() => setVarianceOpen(v => !v)} className="flex w-full flex-col gap-3 p-4 text-left sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#dc143c]">Budget Variance Alerts</p>
+            <h2 className="mt-1 text-sm font-medium text-[#102a2b]">Spot overspending, underuse, and spending-progress mismatch</h2>
+            <p className="mt-1 text-xs text-[#65706c]">Calculated from allocated budget, paid amount, project stage, and completion override when available.</p>
+          </div>
+          <span className="inline-flex h-9 items-center justify-center rounded-lg border border-[#ded6c8] px-3 text-xs font-medium text-[#0f3d3e] hover:bg-[#eef6f4]">{varianceOpen ? 'Hide alerts' : 'Show alerts'}</span>
+        </button>
+        {varianceOpen && <div className="border-t border-[#eee6d8] p-4"><VarianceAlerts items={items} loading={loading} /></div>}
+      </div>
 
       <div className="rounded-lg border border-[#ded6c8] bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eee6d8] p-4">
@@ -305,6 +348,74 @@ export default function BudgetPage() {
       {detailItem && <ProjectDetailsModal item={detailItem} onClose={() => setDetailItem(null)} onFeedback={() => { setDetailItem(null); setFeedbackItem(detailItem); }} />}
     </div>
   );
+}
+
+const ALERT_META = {
+  overspending: { label: 'Overspending', tone: 'border-red-200 bg-red-50 text-red-700', icon: TrendingUp },
+  underutilized: { label: 'Underutilized', tone: 'border-blue-200 bg-blue-50 text-blue-700', icon: TrendingDown },
+  needsAttention: { label: 'Needs attention', tone: 'border-amber-200 bg-amber-50 text-amber-700', icon: AlertTriangle },
+  onTrack: { label: 'On track', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700', icon: CheckCircle2 },
+};
+
+function completionPercentForItem(item) {
+  const manual = Number(item.completionOverride ?? item.manualCompletionPercent ?? item.progressPercent);
+  if (Number.isFinite(manual)) return Math.max(0, Math.min(100, manual));
+  const stage = String(item.status || 'planned').toLowerCase();
+  const mapped = { planned: 10, pending: 15, ongoing: 55, active: 60, completed: 100, resolved: 100, delayed: 35 };
+  return mapped[stage] ?? 25;
+}
+
+function computeVarianceAlert(item, thresholds) {
+  const flow = flowFor(item);
+  const effectiveBudget = flow.revisedBudget;
+  const spent = flow.paidAmount;
+  const variance = spent - effectiveBudget;
+  const variancePercent = effectiveBudget ? Math.round((variance / effectiveBudget) * 1000) / 10 : 0;
+  const financialProgress = flow.paidPercent;
+  const physicalProgress = completionPercentForItem(item);
+  const progressGap = Math.round((financialProgress - physicalProgress) * 10) / 10;
+  let alert = 'onTrack';
+  if (variancePercent > thresholds.overspend) alert = 'overspending';
+  else if (variancePercent < -thresholds.underutilize && physicalProgress < 60) alert = 'underutilized';
+  else if (Math.abs(progressGap) > thresholds.mismatch) alert = 'needsAttention';
+  return { effectiveBudget, spent, remaining: flow.remainingAmount, variance, variancePercent, financialProgress, physicalProgress, progressGap, alert };
+}
+
+function VarianceAlerts({ items, loading }) {
+  const [projectQuery, setProjectQuery] = useState('');
+  const [alertFilter, setAlertFilter] = useState('all');
+  const [thresholds, setThresholds] = useState({ overspend: 5, underutilize: 35, mismatch: 30 });
+  const rows = useMemo(() => items.map(item => ({ item, metrics: computeVarianceAlert(item, thresholds) })).filter(row => {
+    if (alertFilter !== 'all' && row.metrics.alert !== alertFilter) return false;
+    const needle = projectQuery.trim().toLowerCase();
+    if (!needle) return true;
+    const item = row.item;
+    const haystack = ((item.title || '') + ' ' + (item.department || '') + ' ' + (item.sector || '') + ' ' + (item.district || '') + ' ' + (item.municipality || '') + ' ' + (item.ward || '')).toLowerCase();
+    return haystack.includes(needle);
+  }).sort((a, b) => Math.abs(b.metrics.progressGap) - Math.abs(a.metrics.progressGap)), [items, thresholds, projectQuery, alertFilter]);
+  const summary = rows.reduce((acc, row) => { acc[row.metrics.alert] = (acc[row.metrics.alert] || 0) + 1; return acc; }, {});
+
+  return <div className="space-y-4">
+    <div className="grid gap-3 md:grid-cols-4">
+      {Object.entries(ALERT_META).map(([key, meta]) => { const Icon = meta.icon; return <button key={key} type="button" onClick={() => setAlertFilter(alertFilter === key ? 'all' : key)} className={cn('rounded-lg border p-3 text-left transition-colors', alertFilter === key ? meta.tone : 'border-[#ded6c8] bg-[#fbfcfd] text-[#65706c] hover:bg-[#fffaf2]')}> <span className="flex items-center gap-2 text-xs font-medium"><Icon className="h-3.5 w-3.5" />{meta.label}</span><span className="mt-2 block text-xl font-medium tabular-nums text-[#102a2b]">{summary[key] || 0}</span></button>; })}
+    </div>
+    <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8272]" /><input value={projectQuery} onChange={e => setProjectQuery(e.target.value)} placeholder="Search variance alerts" className="h-10 w-full rounded-lg border border-[#ded6c8] pl-9 pr-3 text-sm outline-none focus:border-[#0f3d3e]" /></div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <ThresholdInput label="Overspend %" value={thresholds.overspend} onChange={value => setThresholds(prev => ({ ...prev, overspend: value }))} />
+        <ThresholdInput label="Underuse %" value={thresholds.underutilize} onChange={value => setThresholds(prev => ({ ...prev, underutilize: value }))} />
+        <ThresholdInput label="Gap %" value={thresholds.mismatch} onChange={value => setThresholds(prev => ({ ...prev, mismatch: value }))} />
+      </div>
+    </div>
+    <div className="overflow-hidden rounded-lg border border-[#ded6c8]">
+      <div className="hidden grid-cols-[minmax(220px,1fr)_130px_130px_130px_140px] gap-3 border-b border-[#eee6d8] bg-[#fbfcfd] px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-[#65706c] md:grid"><span>Project</span><span>Budget</span><span>Spent</span><span>Progress gap</span><span>Alert</span></div>
+      {loading ? <div className="p-4 text-sm text-[#65706c]">Checking budget variance...</div> : rows.length === 0 ? <div className="p-5 text-center text-sm text-[#65706c]">No variance alerts match these filters.</div> : <div className="divide-y divide-[#f2ede4]">{rows.slice(0, 8).map(({ item, metrics }) => { const meta = ALERT_META[metrics.alert] || ALERT_META.onTrack; const Icon = meta.icon; return <div key={item._id || item.id || item.title} className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[minmax(220px,1fr)_130px_130px_130px_140px] md:items-center"><div><p className="font-medium text-[#102a2b]">{item.title || 'Untitled project'}</p><p className="mt-0.5 text-xs text-[#65706c]">{item.district || 'District'} � {item.municipality || 'Municipality'} � Ward {item.ward || 'N/A'}</p></div><div><p className="text-xs text-[#8c8272] md:hidden">Budget</p><p className="tabular-nums text-[#102a2b]">{formatNPR(metrics.effectiveBudget)}</p></div><div><p className="text-xs text-[#8c8272] md:hidden">Spent</p><p className="tabular-nums text-[#102a2b]">{formatNPR(metrics.spent)}</p></div><div><p className="text-xs text-[#8c8272] md:hidden">Progress gap</p><p className="tabular-nums text-[#102a2b]">{metrics.progressGap > 0 ? '+' : ''}{metrics.progressGap}%</p><p className="text-[11px] text-[#65706c]">Money {metrics.financialProgress}% � Work {metrics.physicalProgress}%</p></div><span className={cn('inline-flex w-fit items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium', meta.tone)}><Icon className="h-3.5 w-3.5" />{meta.label}</span></div>; })}</div>}
+    </div>
+  </div>;
+}
+
+function ThresholdInput({ label, value, onChange }) {
+  return <label className="flex h-10 items-center gap-2 rounded-lg border border-[#ded6c8] bg-white px-3 text-xs text-[#65706c]"><span className="whitespace-nowrap">{label}</span><input type="number" min="0" max="100" value={value} onChange={e => onChange(Number(e.target.value) || 0)} className="min-w-0 flex-1 bg-transparent text-right text-sm text-[#102a2b] outline-none" /></label>;
 }
 
 function Metric({ label, value, helper }) {
