@@ -76,6 +76,7 @@ export default function ReportDetailPage() {
   const [showIdDoc, setShowIdDoc] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [communityBusy, setCommunityBusy] = useState(false);
+  const [showVerifyPrompt, setShowVerifyPrompt] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -116,6 +117,7 @@ export default function ReportDetailPage() {
   };
 
   const toggleSupport = async () => {
+    if (user?.verificationStatus !== 'verified') { setShowVerifyPrompt(true); return; }
     setCommunityBusy(true);
     try {
       const { report: updated } = await post(`/api/reports/${id}/support`, {});
@@ -127,6 +129,7 @@ export default function ReportDetailPage() {
   const submitComment = async (event) => {
     event.preventDefault();
     if (!commentText.trim()) return;
+    if (user?.verificationStatus !== 'verified') { setShowVerifyPrompt(true); return; }
     setCommunityBusy(true);
     try {
       const { report: updated } = await post(`/api/reports/${id}/comments`, { text: commentText.trim() });
@@ -176,6 +179,18 @@ export default function ReportDetailPage() {
 
   return (
     <>
+    {showVerifyPrompt && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+          <div className="flex items-center gap-2 text-gray-900"><ShieldCheck className="h-5 w-5 text-brand-500" /><h3 className="text-base font-bold">Verify yourself first</h3></div>
+          <p className="mt-2 text-sm text-gray-500">You need to verify your identity before you can comment or support a report. Head to Settings to upload your citizenship certificate and take a live selfie.</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setShowVerifyPrompt(false)} className="h-9 rounded-lg px-3 text-sm font-semibold text-gray-500 hover:bg-gray-100">Cancel</button>
+            <button onClick={() => router.push('/settings')} className="h-9 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600">Go to Settings</button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="max-w-[900px] mx-auto space-y-5">
       <button onClick={() => router.push('/issues')} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800"><ArrowLeft className="w-4 h-4" />Back to Community Reports</button>
 

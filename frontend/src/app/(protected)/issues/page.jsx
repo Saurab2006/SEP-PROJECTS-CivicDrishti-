@@ -6,9 +6,10 @@ import { relativeTime, cn } from '@/lib/format';
 import { toast } from 'sonner';
 import {
   AlertTriangle, MapPin, Plus, ArrowRight, Clock, Copy, ShieldAlert,
-  Loader2, X, ImagePlus,
+  Loader2, X, ImagePlus, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import MapPicker from '@/components/MapPicker';
 import IssuesMap from '@/components/IssuesMap';
 import Pagination from '@/components/Pagination';
@@ -35,10 +36,12 @@ function StatusBadge({ status }) {
 
 export default function IssuesPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const isStaff = user?.role === 'admin' || user?.role === 'municipality_head';
   const isResearcher = user?.role === 'researcher';
   const showMap = user?.role === 'admin' || user?.role === 'municipality_head' || user?.role === 'ward_rep';
   const [selectedId, setSelectedId] = useState(null);
+  const [showVerifyPrompt, setShowVerifyPrompt] = useState(false);
 
   const [meta, setMeta] = useState({ categories: [], authorities: [] });
   const [stats, setStats] = useState(null);
@@ -54,6 +57,11 @@ export default function IssuesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const handleReportClick = () => {
+    if (user?.verificationStatus !== 'verified') { setShowVerifyPrompt(true); return; }
+    setShowForm(true);
+  };
 
   const load = () => {
     setLoading(true);
@@ -125,11 +133,24 @@ export default function IssuesPage() {
           </p>
         </div>
         {isResearcher && (
-          <button onClick={() => setShowForm(true)} className="h-10 px-4 rounded-xl bg-brand-500 text-white text-sm font-semibold hover:bg-brand-600 active:translate-y-px transition-all flex items-center gap-2">
+          <button onClick={handleReportClick} className="h-10 px-4 rounded-xl bg-brand-500 text-white text-sm font-semibold hover:bg-brand-600 active:translate-y-px transition-all flex items-center gap-2">
             <Plus className="w-4 h-4" /> Report an issue
           </button>
         )}
       </div>
+
+      {showVerifyPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-center gap-2 text-gray-900"><ShieldCheck className="h-5 w-5 text-brand-500" /><h3 className="text-base font-bold">Verify yourself first</h3></div>
+            <p className="mt-2 text-sm text-gray-500">You need to verify your identity before you can report an issue. Head to Settings to upload your citizenship certificate and take a live selfie.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setShowVerifyPrompt(false)} className="h-9 rounded-lg px-3 text-sm font-semibold text-gray-500 hover:bg-gray-100">Cancel</button>
+              <button onClick={() => router.push('/settings')} className="h-9 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600">Go to Settings</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -400,5 +421,3 @@ function ReportForm({ meta, onClose, onCreated }) {
 function Field({ label, children }) {
   return <label className="block"><span className="block text-xs font-semibold text-gray-700 mb-1">{label}</span>{children}</label>;
 }
-
-

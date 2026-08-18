@@ -23,4 +23,18 @@ const requireRole = (...roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { protect, requireRole };
+// Gates write actions (reporting an issue, commenting, supporting) behind
+// identity verification. Viewing/browsing stays open to everyone signed in;
+// this only applies to routes that create or change something tied to a
+// person, so a citizen can't submit reports under an unverifiable identity.
+const requireVerified = (req, res, next) => {
+  // Only citizen/ward-rep accounts go through identity verification at all
+  // (admins and municipality heads are provisioned directly, not self-signed-up).
+  if (!['researcher', 'ward_rep'].includes(req.user.role)) return next();
+  if (req.user.verificationStatus !== 'verified') {
+    return res.status(403).json({ error: 'Please verify your identity in Settings before doing this', code: 'VERIFICATION_REQUIRED' });
+  }
+  next();
+};
+
+module.exports = { protect, requireRole, requireVerified };

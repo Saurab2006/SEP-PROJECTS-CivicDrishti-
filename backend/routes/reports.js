@@ -4,7 +4,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Authority = require('../models/Authority');
 const IssueSupport = require('../models/IssueSupport');
-const { protect } = require('../middleware/auth');
+const { protect, requireVerified } = require('../middleware/auth');
 const { embedText, bestSemanticMatch, classifyFreeText, looksNepali, CROSS_CATEGORY_DUPLICATE_THRESHOLD } = require('../utils/civicAI');
 const { sendSms } = require('../utils/sms');
 const { sendPushToUser } = require('../utils/push');
@@ -190,7 +190,7 @@ router.get('/', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, requireVerified, async (req, res) => {
   try {
     if (req.user.role !== 'researcher') return res.status(403).json({ error: 'Only researchers can submit a community report' });
     const { title, category, description, severity, location: inputLocation, reporterContact, photo, photoName } = req.body;
@@ -286,7 +286,7 @@ async function supportIssue(req, res) {
 router.post("/:id/support", protect, supportIssue);
 router.post("/:id/upvote", protect, supportIssue);
 
-router.post('/:id/comments', protect, async (req, res) => {
+router.post('/:id/comments', protect, requireVerified, async (req, res) => {
   try {
     const text = (req.body?.text || '').trim();
     if (!text) return res.status(422).json({ error: 'Comment cannot be empty' });
