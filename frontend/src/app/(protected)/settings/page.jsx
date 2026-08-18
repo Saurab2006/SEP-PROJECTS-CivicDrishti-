@@ -1,12 +1,14 @@
 ﻿'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { initials } from '@/lib/format';
 import { post } from '@/lib/api';
 import { toast } from 'sonner';
-import { Languages, MailCheck, Megaphone, Send, Sun } from 'lucide-react';
+import { Bell, BellOff, Download, Languages, MailCheck, Megaphone, Send, Smartphone, Sun } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { useInstallPrompt } from '@/lib/useInstallPrompt';
+import { getPushSubscriptionState, subscribeToPush, unsubscribeFromPush } from '@/lib/push';
 
 export default function SettingsPage() {
   const { user, verifyEmail, resendEmailOtp } = useAuth();
@@ -90,6 +92,8 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      <AppNotificationsCard t={t} />
+
       {!user.emailVerified && <form onSubmit={submitOtp} className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm">
         <h2 className="flex items-center gap-2 text-sm font-black text-[#102a2b]"><MailCheck className="h-4 w-4 text-[#dc143c]" />{t('settings.verifyEmail')}</h2>
         <p className="mt-1 text-sm text-[#65706c]">{t('settings.verifyEmailSub')}</p>
@@ -115,6 +119,77 @@ export default function SettingsPage() {
         </div>
         <button disabled={sending || !notice.title.trim() || !notice.message.trim()} className="mt-4 inline-flex h-10 items-center gap-2 rounded-lg bg-[#0f3d3e] px-4 text-sm font-black text-white disabled:opacity-50"><Send className="h-4 w-4" />{t('settings.sendNoticeButton')}</button>
       </form>}
+    </div>
+  );
+}
+
+function AppNotificationsCard({ t }) {
+  const { canInstall, installed, promptInstall } = useInstallPrompt();
+  const [push, setPush] = useState({ supported: true, subscribed: false, permission: 'default' });
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getPushSubscriptionState().then(setPush).catch(() => {});
+  }, []);
+
+  const install = async () => {
+    const accepted = await promptInstall();
+    if (accepted) toast.success(t('settings.installAppInstalled'));
+  };
+
+  const togglePush = async () => {
+    setBusy(true);
+    try {
+      if (push.subscribed) {
+        await unsubscribeFromPush();
+        setPush(s => ({ ...s, subscribed: false }));
+        toast.success(t('settings.pushDisable'));
+      } else {
+        await subscribeToPush();
+        setPush(s => ({ ...s, subscribed: true, permission: 'granted' }));
+        toast.success(t('settings.pushEnabled'));
+      }
+    } catch (err) {
+      toast.error(err.message);
+    }
+    setBusy(false);
+  };
+
+  const pushBlocked = push.permission === 'denied';
+  const pushUnsupported = !push.supported;
+
+  return (
+    <div className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm">
+      <h2 className="flex items-center gap-2 text-sm font-black text-[#102a2b]"><Smartphone className="h-4 w-4 text-[#dc143c]" />{t('settings.appNotifications')}</h2>
+      <p className="mt-1 text-sm text-[#65706c]">{t('settings.appNotificationsSub')}</p>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-[#0f3d3e]"><Download className="h-4 w-4" /></div>
+            <div>
+              <p className="text-sm font-bold text-[#102a2b]">{t('settings.installApp')}</p>
+              <p className="text-xs text-[#8c8272]">{installed ? t('settings.installAppInstalled') : canInstall ? t('settings.installAppSub') : t('settings.installAppUnsupported')}</p>
+            </div>
+          </div>
+          {!installed && <button onClick={install} disabled={!canInstall} className="shrink-0 rounded-lg bg-[#0f3d3e] px-3 py-1.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{t('settings.installButton')}</button>}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-[#0f3d3e]">{push.subscribed ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}</div>
+            <div>
+              <p className="text-sm font-bold text-[#102a2b]">{t('settings.pushNotifications')}</p>
+              <p className="text-xs text-[#8c8272]">
+                {pushUnsupported ? t('settings.pushUnsupported') : pushBlocked ? t('settings.pushBlocked') : push.subscribed ? t('settings.pushEnabled') : t('settings.pushNotificationsSub')}
+              </p>
+            </div>
+          </div>
+          <button onClick={togglePush} disabled={busy || pushUnsupported || pushBlocked} className="shrink-0 rounded-lg border border-[#ded6c8] px-3 py-1.5 text-xs font-black text-[#0f3d3e] hover:bg-white disabled:cursor-not-allowed disabled:opacity-40">
+            {push.subscribed ? t('settings.pushDisable') : t('settings.pushEnable')}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

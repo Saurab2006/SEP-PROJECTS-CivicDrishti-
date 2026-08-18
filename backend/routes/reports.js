@@ -7,6 +7,7 @@ const IssueSupport = require('../models/IssueSupport');
 const { protect } = require('../middleware/auth');
 const { embedText, bestSemanticMatch, classifyFreeText, looksNepali, CROSS_CATEGORY_DUPLICATE_THRESHOLD } = require('../utils/civicAI');
 const { sendSms } = require('../utils/sms');
+const { sendPushToUser } = require('../utils/push');
 const { calculateIssuePriority } = require('../utils/issuePriority');
 const { notifyWardCitizens, notifyWardRepresentative, notifyMunicipalityHead, sameWardCitizenQuery } = require('../utils/issueNotifications');
 
@@ -132,6 +133,19 @@ async function notifyReportersSms(report, message) {
   const linked = await IncidentReport.find({ $or: [{ _id: report._id }, { duplicateOf: report._id }] }).select('reporterContact');
   const numbers = [...new Set(linked.map(r => r.reporterContact).filter(Boolean))];
   await Promise.all(numbers.map(phone => sendSms(phone, message).catch(() => null)));
+}
+
+// Push notification counterpart to notifyReportersSms() - reserved for the
+// same milestone events (verified / assigned / resolved) rather than every
+// timeline action, so an opted-in citizen isn't buzzed for every minor
+// update. Delivered even when the app/browser tab is closed, since the
+// service worker's own "push" event handles display. Citizens who haven't
+// opted in simply have zero subscriptions, so this is a no-op for them.
+async function notifyReportersPush(report, { title, message, link }) {
+  const linked = await IncidentReport.find({ $or: [{ _id: report._id }, { duplicateOf: report._id }] }).select('reportedBy');
+  const userIds = [...new Set(linked.map(r => String(r.reportedBy)).filter(Boolean))];
+  const url = link || `/issues/${report._id}`;
+  await Promise.all(userIds.map(uid => sendPushToUser(uid, { title, body: message, url }).catch(() => null)));
 }
 
 router.get('/meta', protect, async (req, res) => {
@@ -351,6 +365,7 @@ router.patch('/:id', protect, async (req, res) => {
       report.timeline.push({ action: 'verified', note: payload.note || 'Confirmed as a genuine issue', by: req.user._id });
       await notifyReporters(report, { type: 'verified', title: 'Your report was verified', message: `"${report.title}" has been confirmed and is being reviewed.` });
       await notifyReportersSms(report, `Civicदृष्टि: Your report "${report.title.slice(0, 60)}" was verified and is being reviewed.`);
+      await notifyReportersPush(report, { title: '🔔 Civicदृष्टि Update', message: `Your report "${report.title}" has been verified.` });
     } else if (action === 'assign') {
       if (!payload.assignedDepartment) return res.status(422).json({ error: 'Choose an authority to assign this to' });
       report.assignedDepartment = payload.assignedDepartment;
@@ -360,6 +375,7 @@ router.patch('/:id', protect, async (req, res) => {
       report.timeline.push({ action: 'assigned', note: `Handed to ${payload.assignedDepartment}${payload.assignedContact ? ` (${payload.assignedContact})` : ''}`, by: req.user._id });
       await notifyReporters(report, { type: 'assigned', title: 'Your report was assigned', message: `"${report.title}" was assigned to ${payload.assignedDepartment}.` });
       await notifyReportersSms(report, `Civicदृष्टि: Your report "${report.title.slice(0, 60)}" was assigned to ${payload.assignedDepartment}.`);
+      await notifyReportersPush(report, { title: '🔔 Report Assigned', message: `Your report has been assigned to ${payload.assignedDepartment}.` });
     } else if (action === 'set-eta') {
       const days = Number(payload.estimatedDays);
       if (!Number.isFinite(days) || days <= 0) return res.status(422).json({ error: 'Enter a valid number of days' });
@@ -380,6 +396,7 @@ router.patch('/:id', protect, async (req, res) => {
       report.timeline.push({ action: 'completed', note: payload.note || 'Marked complete by official', by: req.user._id });
       await notifyReporters(report, { type: 'completed', title: 'Issue resolved', message: `Good news - "${report.title}" has been marked complete.` });
       await notifyReportersSms(report, `Civicदृष्टि: Good news! Your report "${report.title.slice(0, 60)}" has been marked complete.`);
+      await notifyReportersPush(report, { title: '✅ Issue Resolved', message: `The reported issue "${report.title}" has been marked as resolved.` });
       await notifyRoles(['admin'], { type: 'completed', title: 'Report closed', message: `${req.user.name} closed "${report.title}".`, link: `/issues/${report._id}`, report: report._id });
     } else if (action === 'mark-fake') {
       if (!payload.reason) return res.status(422).json({ error: 'Give a reason so it can be reviewed later' });

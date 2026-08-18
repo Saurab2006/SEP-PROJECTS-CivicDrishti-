@@ -4,6 +4,7 @@ import { LanguageProvider } from '@/context/LanguageContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { Toaster } from 'sonner';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import InstallAppBanner from '@/components/InstallAppBanner';
 
 export const metadata = {
   title: 'Civicदृष्टि - Civic Service Accountability Platform',
@@ -36,6 +37,7 @@ export default function RootLayout({ children }) {
               {children}
               <Toaster position="bottom-right" toastOptions={{ style: { borderRadius: 12, fontSize: 13 } }} />
               <ServiceWorkerRegistration />
+              <InstallAppBanner />
             </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>
