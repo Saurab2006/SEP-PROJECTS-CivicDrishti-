@@ -5,7 +5,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { initials } from '@/lib/format';
 import { post } from '@/lib/api';
 import { toast } from 'sonner';
-import { Bell, BellOff, Camera, CheckCircle2, Download, FileCheck2, Languages, MailCheck, MapPinned, Megaphone, Send, ShieldCheck, Smartphone, Sun, UploadCloud, X } from 'lucide-react';
+import { Bell, BellOff, Camera, CheckCircle2, Download, FileCheck2, Languages, MailCheck, MapPinned, Megaphone, Send, ShieldCheck, Share, Smartphone, Sun, UploadCloud, X } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useInstallPrompt } from '@/lib/useInstallPrompt';
 import { getPushSubscriptionState, subscribeToPush, unsubscribeFromPush } from '@/lib/push';
@@ -222,15 +222,17 @@ export default function SettingsPage() {
 }
 
 function AppNotificationsCard({ t }) {
-  const { canInstall, installed, promptInstall } = useInstallPrompt();
+  const { canInstall, installed, promptInstall, isIOSSafari } = useInstallPrompt();
   const [push, setPush] = useState({ supported: true, subscribed: false, permission: 'default' });
   const [busy, setBusy] = useState(false);
+  const [showIOSTip, setShowIOSTip] = useState(false);
 
   useEffect(() => {
     getPushSubscriptionState().then(setPush).catch(() => {});
   }, []);
 
   const install = async () => {
+    if (isIOSSafari) { setShowIOSTip((v) => !v); return; }
     const accepted = await promptInstall();
     if (accepted) toast.success(t('settings.installAppInstalled'));
   };
@@ -262,15 +264,39 @@ function AppNotificationsCard({ t }) {
       <p className="mt-1 text-sm text-[#65706c]">{t('settings.appNotificationsSub')}</p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-[#0f3d3e]"><Download className="h-4 w-4" /></div>
-            <div>
-              <p className="text-sm font-bold text-[#102a2b]">{t('settings.installApp')}</p>
-              <p className="text-xs text-[#8c8272]">{installed ? t('settings.installAppInstalled') : canInstall ? t('settings.installAppSub') : t('settings.installAppUnsupported')}</p>
+        <div className="rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-white text-[#0f3d3e]"><Download className="h-4 w-4" /></div>
+              <div>
+                <p className="text-sm font-bold text-[#102a2b]">{t('settings.installApp')}</p>
+                <p className="text-xs text-[#8c8272]">
+                  {installed
+                    ? t('settings.installAppInstalled')
+                    : canInstall
+                      ? t('settings.installAppSub')
+                      : isIOSSafari
+                        ? t('settings.installAppSub')
+                        : t('settings.installAppUnsupported')}
+                </p>
+              </div>
             </div>
+            {!installed && (
+              <button
+                onClick={install}
+                disabled={!canInstall && !isIOSSafari}
+                className="shrink-0 rounded-lg bg-[#0f3d3e] px-3 py-1.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isIOSSafari ? t('settings.installButtonIOS') : t('settings.installButton')}
+              </button>
+            )}
           </div>
-          {!installed && <button onClick={install} disabled={!canInstall} className="shrink-0 rounded-lg bg-[#0f3d3e] px-3 py-1.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40">{t('settings.installButton')}</button>}
+          {!installed && isIOSSafari && showIOSTip && (
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-[#ded6c8] bg-white px-3 py-2">
+              <Share className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#0f3d3e]" />
+              <p className="text-xs text-[#65706c]">{t('settings.installAppIOS')}</p>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-3 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-4 py-3">

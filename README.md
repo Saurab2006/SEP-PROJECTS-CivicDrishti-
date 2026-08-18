@@ -98,6 +98,18 @@ Administrators can:
 * Send email notifications
 * Notify users when issue statuses change
 
+### 📲 Install as an App & Push Notifications
+
+Civicदृष्टि is a Progressive Web App (PWA):
+
+* **Install App** — citizens can install Civicदृष्टि to their phone or desktop home screen, so it opens full-screen like a native app instead of a browser tab
+* **Push Notifications** — opt-in, real-time alerts delivered even when the app is closed, sent at the same three milestones a report goes through:
+  * 🔔 **Verified** — the report has been confirmed and is under review
+  * 🔔 **Assigned** — the report has been assigned to a responsible department
+  * ✅ **Resolved** — the issue has been marked complete
+* Works alongside the existing SMS notifications — smartphone users get push, citizens without a smartphone/data still get SMS
+* Fully opt-in, controlled per-device from **Settings → App & notifications**
+
 ### 🏘️ Ward Representatives
 
 Ward Representatives receive access based on their approved ward.
@@ -235,11 +247,19 @@ This ensures that important public data cannot be changed without proper review.
 * Password reset
 * Welcome emails
 * System notices
+* **Twilio** — SMS notifications for report status updates
+* **web-push** — Web Push notifications (PWA) for report status updates
 
 ### Artificial Intelligence
 
 * **Google Gemini API**
 * AI-generated civic and budget briefs
+
+### Progressive Web App
+
+* Web app manifest + service worker — installable "Add to Home Screen" experience
+* Push API + VAPID (`web-push`) — real push notifications, delivered even when the app is closed
+* Offline queueing for report submissions via the service worker
 
 ---
 
@@ -267,13 +287,15 @@ Government-web/
 │   │   │   ├── globals.css
 │   │   │   ├── layout.jsx          # Root layout (fonts, providers, theme script)
 │   │   │   └── page.jsx            # Public landing page
-│   │   ├── components/             # Reusable UI (Sidebar, Topbar, MapPicker, IssuesMap, CivicAuthShell, etc.)
+│   │   ├── components/             # Reusable UI (Sidebar, Topbar, MapPicker, IssuesMap, CivicAuthShell, InstallAppBanner, ServiceWorkerRegistration, etc.)
 │   │   ├── context/                # AuthContext, LanguageContext (global state)
-│   │   ├── lib/                    # API client, formatting, i18n, face-match helpers
+│   │   ├── lib/                    # API client, formatting, i18n, face-match, push subscription, install-prompt helpers
 │   │   └── styles/                 # CSS modules (civicAuth.module.css)
 │   ├── public/
 │   │   ├── icons/
-│   │   └── models/                 # face-api.js models for selfie verification
+│   │   ├── models/                 # face-api.js models for selfie verification
+│   │   ├── manifest.json           # PWA manifest (installable app metadata)
+│   │   └── sw.js                   # Service worker — offline caching, report-submission queue, push notifications
 │   ├── jsconfig.json
 │   ├── next.config.js
 │   ├── postcss.config.js
@@ -281,15 +303,15 @@ Government-web/
 │   └── package.json
 │
 ├── backend/                        # Node + Express API
-│   ├── models/                     # Mongoose schemas (User, IncidentReport, BudgetItem, Authority, Notice, Project, WardUnit, ...)
+│   ├── models/                     # Mongoose schemas (User, IncidentReport, BudgetItem, Authority, Notice, Project, WardUnit, PushSubscription, ...)
 │   ├── routes/                     # API route handlers (auth, reports, budgets, authorities, wards, notices, ...)
 │   ├── middleware/                 # Auth/role-guard middleware
-│   ├── utils/                      # Email, SMS, AI briefs, avatar-hue, seeding helpers
+│   ├── utils/                      # Email, SMS, push notifications, AI briefs, avatar-hue, seeding helpers
 │   ├── scripts/                    # One-off maintenance scripts (avatar re-roll, demo cleanup, etc.)
 │   ├── db.js                       # MongoDB connection (falls back to in-memory store if unreachable)
 │   ├── memstore.js                 # In-memory data store used in no-DB fallback mode
 │   ├── index.js                    # Express app entry point
-│   ├── .env                        # MONGODB_URI and other server secrets (not committed)
+│   ├── .env                        # MONGODB_URI, VAPID keys, and other server secrets (not committed)
 │   └── package.json
 │
 ├── .vscode/
@@ -365,6 +387,14 @@ GEMINI_API_KEY=your-gemini-api-key
 EMAIL_SERVICE=gmail
 EMAIL_USER=your-email@example.com
 EMAIL_PASS=your-email-app-password
+
+
+# Optional — Web Push notifications (PWA). Without these, push notifications
+# silently stay disabled everywhere else in the app keeps working normally.
+# Generate your own pair with: npx web-push generate-vapid-keys
+VAPID_PUBLIC_KEY=your-vapid-public-key
+VAPID_PRIVATE_KEY=your-vapid-private-key
+VAPID_SUBJECT=mailto:you@example.com
 ```
 
 ### 4. Start the Application
