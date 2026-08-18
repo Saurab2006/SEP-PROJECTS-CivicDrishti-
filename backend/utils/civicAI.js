@@ -76,6 +76,37 @@ const CROSS_CATEGORY_DUPLICATE_THRESHOLD = 0.92;
 
 // ---- Free-text categorization + translation --------------------------------
 
+async function translateEnglishToNepali(texts) {
+  const list = Array.isArray(texts) ? texts.map(t => String(t || '').trim()).filter(Boolean) : [];
+  if (!list.length) return [];
+  if (!hasGemini()) return list;
+
+  try {
+    const prompt = [
+      'Translate these CivicDrishti government web app UI strings from English to natural Nepali.',
+      'Keep brand names, numbers, routes, emails, IDs, currency amounts, and placeholders like {name} unchanged.',
+      'Return JSON only, no markdown, exactly as an array of strings in the same order.',
+      JSON.stringify(list.slice(0, 80)),
+    ].join('\n');
+
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + process.env.GEMINI_API_KEY;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    if (!response.ok) return list;
+    const data = await response.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    if (!Array.isArray(parsed)) return list;
+    return list.map((text, index) => String(parsed[index] || text));
+  } catch {
+    return list;
+  }
+}
+
+
 function fallbackClassify(text) {
   const clean = String(text || '').trim();
   return {
@@ -137,6 +168,7 @@ module.exports = {
   cosineSimilarity,
   bestSemanticMatch,
   classifyFreeText,
+  translateEnglishToNepali,
   SEMANTIC_DUPLICATE_THRESHOLD,
   CROSS_CATEGORY_DUPLICATE_THRESHOLD,
   VALID_CATEGORIES,

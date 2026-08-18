@@ -198,3 +198,43 @@ async function replayQueuedRequests() {
     }
   }
 }
+
+// ---- push notifications ----
+// Fires for report status updates (verified / assigned / resolved) sent
+// from the server via web-push - see backend/utils/push.js. Delivered even
+// when Civicदृष्टि isn't open, which is the whole point of a push
+// notification versus an in-app one.
+self.addEventListener('push', (event) => {
+  let data = { title: 'Civicदृष्टि', body: 'You have an update.', url: '/dashboard' };
+  try { if (event.data) data = { ...data, ...event.data.json() }; } catch { /* non-JSON payload, use defaults */ }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icons/icon-192.svg',
+      badge: '/icons/icon-192.svg',
+      data: { url: data.url || '/dashboard' },
+      tag: data.url || 'civicdrishti-update',
+    })
+  );
+});
+
+// Focuses an already-open Civicदृष्टि tab and navigates it, or opens a new
+// one, when the citizen taps the notification.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/dashboard';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          client.postMessage({ type: 'push-notification-clicked', url: targetUrl });
+          client.navigate ? client.navigate(targetUrl).then(() => client.focus()) : client.focus();
+          return;
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    })
+  );
+});

@@ -20,12 +20,7 @@ router.post('/signup', async (req, res) => {
     const isFirst = (await User.countDocuments()) === 0;
     const finalRole = role === 'ward_rep' ? 'ward_rep' : (isFirst ? 'admin' : 'researcher');
 
-    // Citizens signing up to submit community reports must verify their
-    // identity with a citizenship document, so admins/analysts can trace a
-    // report back to a real, verified person if it's ever flagged as fake.
-    if (['researcher', 'ward_rep'].includes(finalRole) && !citizenshipDoc) {
-      return res.status(422).json({ error: 'Please upload your citizenship certificate or national ID to verify your identity' });
-    }
+    // Identity verification can be completed later from Settings before sensitive citizen actions.
 
     const otp = code();
     const user = await User.create({
@@ -93,6 +88,37 @@ router.post('/verify-email', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// POST /api/auth/verify-identity
+router.post('/verify-identity', protect, async (req, res) => {
+  try {
+    const { citizenshipDoc, citizenshipDocName, citizenshipNumber, selfiePhoto, faceMatchScore } = req.body;
+    if (!citizenshipDoc) return res.status(422).json({ error: 'Please upload your citizenship certificate or national ID' });
+    const normalizedNumber = String(citizenshipNumber || '').replace(/[\s-]/g, '').trim();
+    if (!normalizedNumber) return res.status(422).json({ error: 'Please enter your citizenship number' });
+    if (!selfiePhoto) return res.status(422).json({ error: 'Please take a live selfie to verify your identity' });
+
+    const dupe = await User.findOne({ citizenshipNumber: normalizedNumber, _id: { $ne: req.user._id } });
+    if (dupe) return res.status(409).json({ error: 'This citizenship number is already linked to another account' });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    user.citizenshipDoc = citizenshipDoc;
+    user.citizenshipDocName = citizenshipDocName || '';
+    user.citizenshipNumber = normalizedNumber;
+    user.selfiePhoto = selfiePhoto;
+    user.faceMatchScore = typeof faceMatchScore === 'number' ? faceMatchScore : null;
+    user.faceVerifiedAt = new Date();
+    user.verificationStatus = 'verified';
+    await user.save();
+
+    res.json({ user: user.toPublic() });
+  } catch (err) {
+    if (err.code === 11000 && err.keyPattern?.citizenshipNumber) return res.status(409).json({ error: 'This citizenship number is already linked to another account' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/resend-email-otp', protect, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -138,6 +164,30 @@ router.post('/reset-password', async (req, res) => {
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+const ADDRESS_CHANGE_COOLDOWN_DAYS = 180;
+
+router.patch('/update-location', protect, async (req, res) => {
+  try {
+    const { province, district, municipality, ward } = req.body;
+    if (!district || !municipality || !ward) return res.status(422).json({ error: 'District, municipality and ward are required' });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user.lastAddressChangeAt) {
+      const nextEligibleAt = new Date(user.lastAddressChangeAt.getTime() + ADDRESS_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+      if (Date.now() < nextEligibleAt.getTime()) {
+        return res.status(429).json({ error: 'You can only change your address once every 6 months.', nextEligibleAt });
+      }
+    }
+
+    user.civicLocation = { ...(user.civicLocation ? user.civicLocation.toObject?.() ?? user.civicLocation : {}), province: province || '', district: district.trim(), municipality: municipality.trim(), ward: String(ward).trim() };
+    user.lastAddressChangeAt = new Date();
+    await user.save();
+    res.json({ user: user.toPublic() });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // GET /api/auth/me
 router.get('/me', protect, (req, res) => {
   res.json({ user: req.user.toPublic() });

@@ -2,6 +2,7 @@
 
 const projectSchema = new mongoose.Schema({
   user:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  wardUnit:   { type: mongoose.Schema.Types.ObjectId, ref: 'WardUnit', default: null },
   document:   { type: mongoose.Schema.Types.ObjectId, ref: 'Document', required: true },
   name:       { type: String, required: true },
   sector:     { type: String, required: true },
@@ -19,8 +20,10 @@ const projectSchema = new mongoose.Schema({
 projectSchema.index({ user: 1, sector: 1, status: 1 });
 projectSchema.index({ user: 1, fiscalYear: 1 });
 projectSchema.index({ province: 1, district: 1, municipality: 1, ward: 1 });
+projectSchema.index({ wardUnit: 1, fiscalYear: 1 });
 
 module.exports = mongoose.model('Project', projectSchema);
+
 
 
 

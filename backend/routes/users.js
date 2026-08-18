@@ -1,6 +1,7 @@
-const express = require('express');
+﻿const express = require('express');
 const User = require('../models/User');
 const Document = require('../models/Document');
+const WardUnit = require('../models/WardUnit');
 const { protect, requireRole } = require('../middleware/auth');
 const { accountDecisionEmail } = require('../utils/authEmails');
 
@@ -53,6 +54,12 @@ router.patch('/:id', protect, requireRole('admin'), async (req, res) => {
     }
 
     const user = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select('-password');
+    if (wardRepresentativeStatus === 'approved') {
+      const app = user.wardRepresentativeApplication || {};
+      if (app.province && app.district && app.ward) {
+        await WardUnit.findOneAndUpdate({ province: app.province, district: app.district, municipality: app.municipality || '', ward: String(app.ward) }, { province: app.province, district: app.district, municipality: app.municipality || '', ward: String(app.ward), representative: user._id, createdBy: req.user._id }, { upsert: true, new: true, setDefaultsOnInsert: true });
+      }
+    }
     res.json({ user: user.toPublic() });
 
     if (wardRepresentativeStatus && before.email) {
@@ -95,4 +102,5 @@ router.get('/:id/citizenship-doc', protect, requireRole('admin', 'municipality_h
 });
 
 module.exports = router;
+
 

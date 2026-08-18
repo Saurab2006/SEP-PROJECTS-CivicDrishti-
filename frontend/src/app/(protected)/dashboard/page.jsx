@@ -79,7 +79,7 @@ export default function DashboardPage() {
   ];
 
   const activity = useMemo(() => {
-    const latest = reports.slice(0, 5).map((r) => ({
+    const latest = reports.slice(0, 3).map((r) => ({
       id: r._id,
       title: r.status ? `${statusText(r.status)}: ${r.title}` : `${t('status.updated')}: ${r.title}`,
       meta: `${dateLabel(r.updatedAt || r.createdAt, t)} · ${r.assignedAuthority?.name || r.authority?.name || t('dashboard.notAssigned')}`,
@@ -263,7 +263,7 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--gov-border)]">
-                {reports.map((r) => (
+                {reports.slice(0, 3).map((r) => (
                   <tr key={r._id} className="hover:bg-[#fbfcfe] dark:hover:bg-[#111827]">
                     <td className="px-5 py-4">
                       <Link href={`/issues/${r._id}`} className="text-sm font-medium text-[var(--gov-text)] hover:text-[var(--gov-primary)]">{r.title}</Link>
@@ -306,12 +306,11 @@ function HeroMapPreview({ reports, loading, t }) {
             loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-white/25 via-transparent to-white/10 dark:from-[#0f172a]/45 dark:to-[#0f172a]/10" />
-          {(visibleReports.length ? visibleReports : [{ _id: 'preview-pin', title: t('dashboard.mapPreview') }]).slice(0, 3).map((report, index) => (
+          {pinPositions.map((pos, index) => (
             <span
-              key={report._id || index}
+              key={index}
               className="absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[var(--gov-primary)] shadow-lg ring-1 ring-[#f4bbb8]"
-              style={pinPositions[index] || pinPositions[0]}
-              title={report.title}
+              style={pos}
             >
               <MapPin className="h-5 w-5" />
             </span>
@@ -391,10 +390,3 @@ function EmptyState({ text }) {
 function Skeleton({ className }) {
   return <div className={cn('shimmer rounded-lg bg-[#edf2f7] dark:bg-[#1f2937]', className)} />;
 }
-
-
-
-
-
-
-

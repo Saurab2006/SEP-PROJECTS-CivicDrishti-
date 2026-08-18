@@ -21,7 +21,7 @@ const municipalityHeadRoutes = require('./routes/municipalityHeads');
 const Authority = require('./models/Authority');
 const Notification = require('./models/Notification');
 const { parseInboundSms, helpText, sendSms, normalizePhone, VALID_CATEGORIES } = require('./utils/sms');
-const { classifyFreeText } = require('./utils/civicAI');
+const { classifyFreeText, hasGemini, translateEnglishToNepali } = require('./utils/civicAI');
 const { code, hashCode, expires, validHash, welcomeEmail, otpEmail, resetEmail } = require('./utils/authEmails');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'govinsight-nepal-jwt-secret';
@@ -60,6 +60,22 @@ function useMongoRoutes(path, router) {
 
 // Health
 app.get('/api/health', (_, res) => res.json({ ok: true, database: getMode() }));
+app.get('/api/ai/gemini-status', (req, res) => {
+  res.json({ configured: hasGemini(), keyPresent: Boolean(process.env.GEMINI_API_KEY) });
+});
+
+app.post('/api/ai/translate', async (req, res) => {
+  try {
+    const target = String(req.body?.target || 'ne');
+    const texts = Array.isArray(req.body?.texts) ? req.body.texts : [];
+    if (target !== 'ne') return res.json({ translations: texts });
+    const translations = await translateEnglishToNepali(texts);
+    res.json({ translations, configured: hasGemini() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Use persistent MongoDB routes when MONGODB_URI is reachable. The existing
 // memory routes below keep the app usable without a local database.

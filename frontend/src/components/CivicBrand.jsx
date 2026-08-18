@@ -1,16 +1,22 @@
 ﻿'use client';
+import { useId } from 'react';
 import { Link2, ShieldCheck } from 'lucide-react';
 
 export function NepalCivicMark({ className = 'h-10 w-10' }) {
+  // Every instance needs its own gradient id -- when this mark is rendered
+  // more than once on the same page (mobile + desktop sidebar, topbar,
+  // responsive auth layouts, etc.) a shared hardcoded id means only the
+  // first <svg> paints; the rest silently render blank.
+  const gradientId = useId();
   return (
     <svg viewBox="0 0 64 64" className={className} role="img" aria-label="Civicदृष्टि mark">
       <defs>
-        <linearGradient id="nepalCivicMark" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+        <linearGradient id={gradientId} x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
           <stop stopColor="#dc143c" />
           <stop offset="1" stopColor="#0f3d3e" />
         </linearGradient>
       </defs>
-      <path d="M16 8v48h36L27 34h19L16 8Z" fill="url(#nepalCivicMark)" />
+      <path d="M16 8v48h36L27 34h19L16 8Z" fill={`url(#${gradientId})`} />
       <path d="M16 8v48h36L27 34h19L16 8Z" fill="none" stroke="#fff7ec" strokeWidth="3" strokeLinejoin="round" />
       <circle cx="28" cy="25" r="5" fill="#fff7ec" />
       <path d="M22 45h18M25 40h12M28 35h6" stroke="#fff7ec" strokeWidth="2.5" strokeLinecap="round" />

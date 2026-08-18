@@ -68,12 +68,12 @@ export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMo
             type="button"
             onClick={toggleLocale}
             title={t('topbar.language')}
-            className="hidden h-10 items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-3 text-sm font-medium text-[var(--gov-muted)] transition-colors hover:bg-[#f6f8fb] dark:bg-[#0f172a] sm:inline-flex"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-3 text-sm font-medium text-[var(--gov-muted)] transition-colors hover:bg-[#f6f8fb] dark:bg-[#0f172a]"
           >
             <Languages className="h-4 w-4" />
             <span className="hidden md:inline">{locale === 'en' ? 'नेपाली' : 'English'}</span>
           </button>
-          <ThemeToggle className="hidden !h-10 sm:inline-flex" />
+          <ThemeToggle className="!h-10 inline-flex" />
           <NotificationBell />
           <div className="hidden items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-2.5 py-1.5 dark:bg-[#0f172a] sm:flex">
             <div className="grid h-8 w-8 place-items-center rounded-full bg-[#edf2f7] text-xs font-semibold text-[var(--gov-text)] dark:bg-[#1f2937]">{initials(user.name)}</div>

@@ -208,6 +208,25 @@ body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: anti
 .dark .gov-app main .bg-\[\#f8fafc\] {
   background-color: var(--gov-surface-soft) !important;
 }
+
+.dark .gov-app main .text-\[\#102a2b\],
+.dark .gov-app main .text-\[\#17212b\] {
+  color: var(--gov-text) !important;
+}
+.dark .gov-app main .text-\[\#65706c\],
+.dark .gov-app main .text-\[\#4e6174\] {
+  color: var(--gov-muted) !important;
+}
+.dark .gov-app main .text-\[\#8c8272\] {
+  color: var(--gov-subtle) !important;
+}
+.dark .gov-app main .border-\[\#ded6c8\],
+.dark .gov-app main .border-\[\#aebdcb\] {
+  border-color: var(--gov-border) !important;
+}
+.dark .gov-app main .bg-\[\#fffaf2\] {
+  background-color: var(--gov-surface-soft) !important;
+}
 @media (min-width: 1024px) {
   .gov-app > .flex > aside[class*="fixed"][class*="w-[276px]"] ~ div {
     padding-left: 276px;
@@ -216,5 +235,3 @@ body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: anti
     padding-left: 84px;
   }
 }
-
-
