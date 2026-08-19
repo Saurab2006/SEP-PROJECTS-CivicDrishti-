@@ -4,6 +4,7 @@ const Document = require('../models/Document');
 const WardUnit = require('../models/WardUnit');
 const { protect, requireRole } = require('../middleware/auth');
 const { accountDecisionEmail } = require('../utils/authEmails');
+const { logAudit } = require('../utils/auditLog');
 
 const router = express.Router();
 
@@ -53,17 +54,21 @@ router.patch('/:id', protect, requireRole('admin'), async (req, res) => {
       }
     }
 
-    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select('-password');
+    const targetLabel = before.name || before.email || String(before._id);
+    const loc = before.wardRepresentativeApplication || {};
+    const locFields = { province: loc.province || '', district: loc.district || '', municipality: loc.municipality || '', ward: String(loc.ward || '') };
     if (wardRepresentativeStatus === 'approved') {
-      const app = user.wardRepresentativeApplication || {};
-      if (app.province && app.district && app.ward) {
-        await WardUnit.findOneAndUpdate({ province: app.province, district: app.district, municipality: app.municipality || '', ward: String(app.ward) }, { province: app.province, district: app.district, municipality: app.municipality || '', ward: String(app.ward), representative: user._id, createdBy: req.user._id }, { upsert: true, new: true, setDefaultsOnInsert: true });
-      }
+      logAudit(req, { action: 'APPROVE_OFFICIAL', targetType: 'User', targetId: before._id, targetLabel, previousValue: { wardRepresentativeStatus: before.wardRepresentativeApplication?.status }, newValue: { wardRepresentativeStatus: 'approved' }, ...locFields });
+    } else if (wardRepresentativeStatus === 'rejected') {
+      logAudit(req, { action: 'REJECT_VERIFICATION', targetType: 'User', targetId: before._id, targetLabel, previousValue: { wardRepresentativeStatus: before.wardRepresentativeApplication?.status }, newValue: { wardRepresentativeStatus: 'rejected' }, ...locFields });
+    } else if (verificationStatus) {
+      logAudit(req, { action: verificationStatus === 'verified' ? 'APPROVE_VERIFICATION' : 'REJECT_VERIFICATION', targetType: 'User', targetId: before._id, targetLabel, previousValue: { verificationStatus: before.verificationStatus }, newValue: { verificationStatus }, ...locFields });
     }
-    res.json({ user: user.toPublic() });
-
-    if (wardRepresentativeStatus && before.email) {
-      accountDecisionEmail(before, wardRepresentativeStatus);
+    if (role && role !== before.role) {
+      logAudit(req, { action: 'CHANGE_ROLE', targetType: 'User', targetId: before._id, targetLabel, previousValue: { role: before.role }, newValue: { role }, ...locFields });
+    }
+    if (status && status !== before.status && !wardRepresentativeStatus) {
+      logAudit(req, { action: status === 'suspended' ? 'SUSPEND_USER' : 'REACTIVATE_USER', targetType: 'User', targetId: before._id, targetLabel, previousValue: { status: before.status }, newValue: { status }, ...locFields });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -84,6 +89,8 @@ router.delete('/:id', protect, requireRole('admin'), async (req, res) => {
       User.deleteOne({ _id: user._id }),
     ]);
     res.json({ ok: true });
+
+    logAudit(req, { action: 'DELETE_USER', targetType: 'User', targetId: user._id, targetLabel: user.name || user.email, previousValue: { name: user.name, email: user.email, role: user.role, status: user.status } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

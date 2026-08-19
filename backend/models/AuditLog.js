@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const auditLogSchema = new mongoose.Schema({
+  actorName: String, // denormalized so the log still reads clearly if the account is later deleted
   actor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -16,6 +17,11 @@ const auditLogSchema = new mongoose.Schema({
     enum: [
       'APPROVE_OFFICIAL',
       'REJECT_VERIFICATION',
+      'APPROVE_VERIFICATION',
+      'CHANGE_ROLE',
+      'SUSPEND_USER',
+      'REACTIVATE_USER',
+      'DELETE_USER',
       'EDIT_BUDGET',
       'APPROVE_CHANGE',
       'REJECT_CHANGE',
@@ -39,6 +45,7 @@ const auditLogSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     required: true,
   },
+    targetLabel: String, // e.g. a project title or a person's name, for a readable table row
   previousValue: mongoose.Schema.Types.Mixed,
   newValue: mongoose.Schema.Types.Mixed,
   result: {

@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { protect, requireRole } = require('../middleware/auth');
 const { sendEmailQuietly } = require('../utils/email');
-
+const { logAudit } = require('../utils/auditLog');
 const router = express.Router();
 
 function visibleFilter(user) {
@@ -51,6 +51,7 @@ router.post('/', protect, requireRole('admin'), async (req, res) => {
       users.forEach(u => sendEmailQuietly({ to: u.email, subject: `Important notice: ${title}`, text: `Namaste ${u.name},\n\n${message}\n\nOpen Civicदृष्टि to see the notice.` }));
     }
     res.status(201).json({ notice, emailed: users.length });
+    logAudit(req, { action: 'CREATE_NOTICE', targetType: 'Notice', targetId: notice._id, targetLabel: title, newValue: { title, message, priority, audience } });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

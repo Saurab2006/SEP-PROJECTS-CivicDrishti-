@@ -10,6 +10,7 @@ const { sendSms } = require('../utils/sms');
 const { sendPushToUser } = require('../utils/push');
 const { calculateIssuePriority } = require('../utils/issuePriority');
 const { notifyWardCitizens, notifyWardRepresentative, notifyMunicipalityHead, sameWardCitizenQuery } = require('../utils/issueNotifications');
+const { logAudit } = require('../utils/auditLog');
 
 const router = express.Router();
 
@@ -359,6 +360,8 @@ router.patch('/:id', protect, async (req, res) => {
     const report = await IncidentReport.findById(req.params.id);
     if (!report) return res.status(404).json({ error: 'Report not found' });
     const { action, ...payload } = req.body;
+    const previousStatus = report.status;
+    const loc = report.location || {};
 
     if (action === 'verify') {
       report.status = 'verified';
@@ -420,6 +423,17 @@ router.patch('/:id', protect, async (req, res) => {
 
     await report.save();
     res.json({ report: serializeReport(report, req.user._id) });
+
+    const auditAction = action === 'assign' ? 'ASSIGN_AUTHORITY' : action === 'mark-fake' ? 'MARK_FAKE' : 'CHANGE_REPORT_STATUS';
+    logAudit(req, {
+      action: auditAction,
+      targetType: 'IncidentReport',
+      targetId: report._id,
+      targetLabel: report.title,
+      previousValue: { status: previousStatus },
+      newValue: { status: report.status, action, ...payload },
+      district: loc.district || '', municipality: loc.municipality || '', ward: String(loc.ward || ''),
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -4,7 +4,7 @@ const Review = require('../models/Review');
 const IncidentReport = require('../models/IncidentReport');
 const { protect } = require('../middleware/auth');
 const { suggestAuthoritiesForArea } = require('../utils/authorityAI');
-
+const { logAudit } = require('../utils/auditLog');
 const router = express.Router();
 
 router.get('/', protect, async (req, res) => {
@@ -29,6 +29,7 @@ router.post('/', protect, async (req, res) => {
       source: 'admin', createdBy: req.user._id,
     });
     res.status(201).json({ authority });
+    logAudit(req, { action: 'CREATE_AUTHORITY', targetType: 'Authority', targetId: authority._id, targetLabel: authority.name, newValue: { name, department, district, categories, contactEmail, contactPhone }, district: district || '' });
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ error: 'That authority already exists for this district' });
     res.status(500).json({ error: err.message });

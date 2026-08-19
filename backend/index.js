@@ -18,6 +18,7 @@ const smsRoutes = require('./routes/sms');
 const municipalityRoutes = require('./routes/municipality');
 const municipalityListRoutes = require('./routes/municipalities');
 const municipalityHeadRoutes = require('./routes/municipalityHeads');
+const auditLogRoutes = require('./routes/auditLogs');
 const Authority = require('./models/Authority');
 const Notification = require('./models/Notification');
 const { parseInboundSms, helpText, sendSms, normalizePhone, VALID_CATEGORIES } = require('./utils/sms');
@@ -93,6 +94,7 @@ useMongoRoutes('/api/sms', smsRoutes);
 useMongoRoutes('/api/municipality', municipalityRoutes);
 useMongoRoutes('/api/municipalities', municipalityListRoutes);
 useMongoRoutes('/api/municipality-heads', municipalityHeadRoutes);
+useMongoRoutes('/api/audit-logs', auditLogRoutes);
 
 
 app.get('/api/notices/public-active', (req, res) => {

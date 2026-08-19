@@ -11,6 +11,7 @@ const BudgetFeedback = require('../models/BudgetFeedback');
 const IncidentReport = require('../models/IncidentReport');
 const { protect, requireRole } = require('../middleware/auth');
 const { budgetDecisionEmail } = require('../utils/authEmails');
+const { logAudit } = require('../utils/auditLog');
 
 const router = express.Router();
 
@@ -357,14 +358,17 @@ router.patch('/changes/:id', protect, requireRole('admin'), async (req, res) => 
     if (status === 'approved') {
       if (change.type === 'create' || !change.budgetItem) {
         const p = change.proposed || {};
-        await BudgetItem.create({ user: change.user, document: p.document, title: p.title, department: p.department, sector: p.sector, expenditureType: p.expenditureType, programType: p.programType, amount: p.amount, originalApprovedBudget: p.originalApprovedBudget || p.amount, revisedBudget: p.revisedBudget || p.amount, releasedAmount: p.releasedAmount, contractedAmount: p.contractedAmount, paidAmount: p.paidAmount, fiscalYear: p.fiscalYear, province: p.province || deriveProvince(p.district), district: p.district || '', municipality: p.municipality || '', ward: p.ward || '', wardUnit: p.wardUnit || null, page: 1, confidence: 1, isDemo: false, revisionHistory: [{ previous: {}, next: p, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: p.document || null, reviewedAt: new Date() }] });
+        const created = await BudgetItem.create({ user: change.user, document: p.document, title: p.title, department: p.department, sector: p.sector, expenditureType: p.expenditureType, programType: p.programType, amount: p.amount, originalApprovedBudget: p.originalApprovedBudget || p.amount, revisedBudget: p.revisedBudget || p.amount, releasedAmount: p.releasedAmount, contractedAmount: p.contractedAmount, paidAmount: p.paidAmount, fiscalYear: p.fiscalYear, province: p.province || deriveProvince(p.district), district: p.district || '', municipality: p.municipality || '', ward: p.ward || '', wardUnit: p.wardUnit || null, page: 1, confidence: 1, isDemo: false, revisionHistory: [{ previous: {}, next: p, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: p.document || null, reviewedAt: new Date() }] });
         await Activity.create({ user: change.user, type: 'approval', message: `Approved new budget record "${p.title}"` });
+        logAudit(req, { action: 'APPROVE_CHANGE', targetType: 'BudgetItem', targetId: created._id, targetLabel: p.title, previousValue: null, newValue: p, province: p.province || '', municipality: p.municipality || '', ward: p.ward || '' });
       } else {
         await BudgetItem.findByIdAndUpdate(change.budgetItem._id, { $set: change.proposed || {}, $push: { revisionHistory: { previous: change.previous || {}, next: change.proposed || {}, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: change.proposed?.document || null, reviewedAt: new Date() } } }, { new: true });
         await Activity.create({ user: change.user, type: 'approval', message: `Approved budget update for "${change.budgetItem.title}"` });
+        logAudit(req, { action: 'EDIT_BUDGET', targetType: 'BudgetItem', targetId: change.budgetItem._id, targetLabel: change.budgetItem.title, previousValue: change.previous || {}, newValue: change.proposed || {}, province: change.budgetItem.province || '', municipality: change.budgetItem.municipality || '', ward: change.budgetItem.ward || '' });
       }
     } else {
       await Activity.create({ user: change.user, type: 'approval', message: `Rejected budget change request` });
+      logAudit(req, { action: 'REJECT_CHANGE', targetType: 'ChangeRequest', targetId: change._id, targetLabel: change.budgetItem?.title || change.proposed?.title || '', previousValue: change.proposed || {}, newValue: { rejectionReason: change.rejectionReason }, province: change.budgetItem?.province || change.proposed?.province || '', municipality: change.budgetItem?.municipality || change.proposed?.municipality || '', ward: change.budgetItem?.ward || change.proposed?.ward || '' });
     }
     res.json({ change });
   } catch (err) { res.status(500).json({ error: err.message }); }

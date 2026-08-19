@@ -1,7 +1,7 @@
 ﻿'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Building2, ClipboardList, Gauge, Landmark, LogOut, MapPinned, Settings, Table2, Users, X } from 'lucide-react';
+import { Building2, ClipboardList, Gauge, Landmark, LogOut, MapPinned, ScrollText, Settings, Table2, Users, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { cn, initials } from '@/lib/format';
@@ -75,7 +75,10 @@ export default function Sidebar({ collapsed = false, mobileOpen = false, onMobil
         {GROUPS.map(group => (
           <section key={group.key} className="mb-6">
             {!collapsed && <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-[#4e6174]">{t(group.key)}</p>}
-            <div className="space-y-1">{group.items.map(i => item(i.href, t(i.key), t(i.note), i.icon))}</div>
+            <div className="space-y-1">
+              {group.items.map(i => item(i.href, t(i.key), t(i.note), i.icon))}
+              {group.key === 'nav.accountability' && user?.role === 'admin' && item('/admin/audit-logs', t('nav.auditLogs'), t('nav.auditLogsNote'), ScrollText)}
+            </div>
           </section>
         ))}
         {user?.role === 'municipality_head' && (
