@@ -48,7 +48,6 @@ export default function CommunityFeedbackBoard() {
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#dc143c]">Community Feedback</p>
           <h2 className="mt-0.5 text-lg font-medium text-[#102a2b]">What citizens are saying, nationwide</h2>
-          <p className="mt-1 max-w-2xl text-sm text-[#65706c]">Browse real citizen feedback linked to public budget projects, shown alongside illustrative <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">Demo Data</span> covering all 7 provinces of Nepal - down to district, municipality, and ward.</p>
         </div>
         <button onClick={() => setOpen(true)} className="flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0f3d3e] px-5 text-sm font-black text-white hover:bg-[#102a2b] sm:w-auto">
           View All Feedback <ChevronRight className="h-4 w-4" />

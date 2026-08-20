@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Languages, Menu, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Languages, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { initials } from '@/lib/format';
@@ -57,13 +57,6 @@ export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMo
         </div>
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2 sm:gap-3">
-          <label className="hidden h-10 w-full max-w-xl items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-[#fbfcfe] px-3 text-sm text-[var(--gov-muted)] dark:bg-[#0f172a] md:flex">
-            <Search className="h-4 w-4 text-[var(--gov-subtle)]" />
-            <input className="w-full bg-transparent text-sm font-normal outline-none placeholder:text-[var(--gov-subtle)]" placeholder={t('topbar.search')} />
-          </label>
-          <button className="hidden h-10 w-10 place-items-center rounded-lg border border-[var(--gov-border)] bg-white text-[var(--gov-muted)] transition-colors hover:bg-[#f6f8fb] dark:bg-[#0f172a] sm:grid md:hidden" title="Search">
-            <Search className="h-4 w-4" />
-          </button>
           <button
             type="button"
             onClick={toggleLocale}

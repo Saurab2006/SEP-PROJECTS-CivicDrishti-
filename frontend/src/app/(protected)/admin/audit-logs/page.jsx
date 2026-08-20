@@ -109,7 +109,6 @@ export default function AuditLogsPage() {
         <div>
           <p className="gov-label uppercase">Accountability</p>
           <h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Audit logs</h1>
-          <p className="mt-1 text-sm text-[var(--gov-muted)]">Every admin and official action, recorded with who, what, and when. Records are read-only.</p>
         </div>
         <button type="button" onClick={load} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-4 text-sm font-medium text-[var(--gov-muted)] hover:bg-[#f6f8fb]">
           <RefreshCw className="h-4 w-4" />Refresh

@@ -98,7 +98,6 @@ export default function DashboardPage() {
             <div>
               <p className="gov-label uppercase text-[var(--gov-primary)]">{t('dashboard.pageEyebrow')}</p>
               <h1 className="gov-h1 mt-2">{t('dashboard.pageTitle')}</h1>
-              <p className="gov-body mt-3 max-w-3xl">{t('dashboard.pageSubtitle')}</p>
             </div>
             <Link href="/issues" className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--gov-primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--gov-primary-dark)] sm:w-auto">
               {t('dashboard.viewIssues')} <ArrowRight className="h-4 w-4" />
@@ -158,7 +157,6 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="gov-h2">{t('dashboard.budgetOverview')}</h2>
-              <p className="gov-secondary mt-1">{t('dashboard.simpleBudgetOverviewSub')}</p>
             </div>
             <Link href="/budget" className="text-sm font-medium text-[var(--gov-primary)] hover:underline">{t('dashboard.openBudgetExplorer')}</Link>
           </div>
@@ -179,7 +177,6 @@ export default function DashboardPage() {
                       <p className="text-sm font-semibold text-[var(--gov-primary)]">{budgetUsed}%</p>
                     </div>
                     <BudgetProgress percent={budgetUsed} />
-                    <p className="gov-secondary mt-2">{t('dashboard.spendingProgressHelp')}</p>
                   </div>
                 </>
               )}
@@ -237,7 +234,6 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-3 border-b border-[var(--gov-border)] px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
           <div>
             <h2 className="gov-h2">{t('dashboard.reportsAttention')}</h2>
-            <p className="gov-secondary mt-1">{t('dashboard.reportsAttentionSub')}</p>
           </div>
           <Link href="/issues" className="text-sm font-medium text-[var(--gov-primary)] hover:underline">{t('dashboard.viewAllReports')}</Link>
         </div>

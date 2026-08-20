@@ -34,7 +34,7 @@ export default function MunicipalityHeadsPage() {
     setSaving(false);
   };
   return <div className="mx-auto max-w-[1200px] space-y-5">
-    <div><p className="gov-label uppercase">Administration</p><h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Municipality heads</h1><p className="mt-1 text-sm text-[var(--gov-muted)]">Create official municipality access. Each head sees only their assigned municipality.</p></div>
+    <div><p className="gov-label uppercase">Administration</p><h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Municipality heads</h1></div>
     <div className="grid gap-5 lg:grid-cols-[420px_1fr]">
       <form onSubmit={submit} className="space-y-3 rounded-xl border border-[var(--gov-border)] bg-white p-4 shadow-sm sm:p-5">
         <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--gov-text)]"><Building2 className="h-4 w-4 text-[var(--gov-primary)]" />Add municipality head</h2>

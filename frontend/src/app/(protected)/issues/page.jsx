@@ -128,9 +128,6 @@ export default function IssuesPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Community Reports</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {isStaff ? 'Review, assign, and resolve issues reported by citizens' : 'Report a flooded road, blocked tunnel, or other hazard near you'}
-          </p>
         </div>
         {isResearcher && (
           <button onClick={handleReportClick} className="h-10 px-4 rounded-xl bg-brand-500 text-white text-sm font-semibold hover:bg-brand-600 active:translate-y-px transition-all flex items-center gap-2">

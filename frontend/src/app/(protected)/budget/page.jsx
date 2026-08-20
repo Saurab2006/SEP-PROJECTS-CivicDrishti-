@@ -247,17 +247,12 @@ export default function BudgetPage() {
         <div>
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#dc143c]">Civicदृष्टि public budget register</p>
           <h1 className="mt-1 text-2xl font-medium text-[#102a2b]">Province to Ward Budget Tracking</h1>
-          <p className="mt-1 text-sm text-[#65706c]">{isWardRep ? `You can propose updates only for ${user?.wardRepresentativeApplication?.district || 'your district'}, ${user?.wardRepresentativeApplication?.municipality || 'your municipality'}, Ward ${user?.wardRepresentativeApplication?.ward || ''}.` : `Browse public allocations, releases, payments, and completion from Nepal's 7 provinces down to districts, municipalities, and wards.`}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={downloadCsv} className="flex h-10 items-center gap-2 rounded-lg border border-[#ded6c8] bg-white px-4 text-sm font-medium text-[#0f3d3e] hover:bg-[#fffaf2]"><Download className="h-4 w-4" />Export CSV</button>
           <button onClick={downloadPdf} className="flex h-10 items-center gap-2 rounded-lg border border-[#ded6c8] bg-white px-4 text-sm font-medium text-[#0f3d3e] hover:bg-[#fffaf2]"><FileText className="h-4 w-4" />PDF</button>
           {canPropose && <button onClick={startCreate} className="h-10 rounded-lg bg-[#dc143c] px-4 text-sm font-medium text-white hover:bg-[#b80f31]">Add budget record</button>}
         </div>
-      </div>
-
-      <div className="rounded-lg border border-[#d8e0e8] bg-[#f8fbfd] px-4 py-3 text-sm text-[#405467]">
-        All citizens can browse budget records across Nepal. Creating or editing records is restricted to approved municipality heads and ward representatives, and every change requires admin approval before becoming public.
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -274,7 +269,6 @@ export default function BudgetPage() {
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-[#dc143c]">Budget Variance Alerts</p>
             <h2 className="mt-1 text-sm font-medium text-[#102a2b]">Spot overspending, underuse, and spending-progress mismatch</h2>
-            <p className="mt-1 text-xs text-[#65706c]">Calculated from allocated budget, paid amount, project stage, and completion override when available.</p>
           </div>
           <span className="inline-flex h-9 items-center justify-center rounded-lg border border-[#ded6c8] px-3 text-xs font-medium text-[#0f3d3e] hover:bg-[#eef6f4]">{varianceOpen ? 'Hide alerts' : 'Show alerts'}</span>
         </button>
@@ -308,7 +302,6 @@ export default function BudgetPage() {
             <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-medium text-[#102a2b]">Projects in this area</h2>
-              <p className="mt-0.5 text-xs text-[#65706c]">Key amounts and delivery status first. Open a project for the full financial record.</p>
             </div>
             <span className="shrink-0 rounded-full bg-[#eef6f4] px-2.5 py-1 text-xs font-medium text-[#0f3d3e]">{filteredItems.length} records</span>
             </div>

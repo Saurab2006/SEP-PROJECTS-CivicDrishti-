@@ -52,7 +52,6 @@ export default function WardAdminPage() {
       <div>
         <p className="gov-label uppercase">Administration</p>
         <h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Ward offices</h1>
-        <p className="mt-1 text-sm text-[var(--gov-muted)]">Create wards, assign representatives, and review pending ward representative requests.</p>
       </div>
 
       <form onSubmit={saveWard} className="rounded-xl border border-[var(--gov-border)] bg-white p-4 shadow-sm sm:p-5">

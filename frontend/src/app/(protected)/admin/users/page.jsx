@@ -77,7 +77,6 @@ export default function UsersPage() {
     <div className="mx-auto max-w-[1400px] space-y-5">
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">User Management</h1>
-        <p className="mt-1 text-sm text-gray-500">Manage team roles, access, and citizen identity verification</p>
       </div>
 
       <div className="grid gap-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm md:grid-cols-[1fr_160px_150px_170px]">

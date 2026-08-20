@@ -36,7 +36,6 @@ export default function AuthoritiesPage() {
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#dc143c]">Civicदृष्टि responsibility chain</p>
           <h1 className="mt-1 text-2xl font-black text-[#102a2b]">Authorities</h1>
-          <p className="mt-1 text-sm text-[#65706c]">See which public offices own the work, how citizens rate them, and who can be contacted.</p>
         </div>
         {isAdmin && tab === 'directory' && (
           <button onClick={() => setShowAddForm(true)} className="flex h-10 items-center gap-2 rounded-lg bg-[#dc143c] px-4 text-sm font-black text-white hover:bg-[#b80f31]">
