@@ -1,17 +1,5 @@
 // Civicदृष्टि — offline service worker.
-//
-// Strategy:
-//  - App shell / static assets: cache-first, so core screens open with no
-//    connection at all.
-//  - GET /api/* calls: network-first, falling back to the last cached
-//    response when offline (so a citizen can still see budgets/issues they
-//    loaded earlier).
-//  - POST/PATCH to /api/reports: if the network request fails (offline),
-//    the request is queued in IndexedDB and replayed automatically via
-//    Background Sync once connectivity returns — this is how issue reports
-//    submitted offline eventually reach the server.
-
-const CACHE_VERSION = 'govinsight-v2';
+const CACHE_VERSION = 'govinsight-v3';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 const QUEUE_DB = 'govinsight-offline-queue';
@@ -79,6 +67,8 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => !k.startsWith(CACHE_VERSION)).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then((clients) => clients.forEach((client) => client.postMessage({ type: 'sw-updated' })))
   );
 });
 
@@ -92,6 +82,14 @@ self.addEventListener('fetch', (event) => {
 
   const isApi = url.pathname.startsWith('/api/');
   const isReportWrite = isApi && url.pathname.startsWith('/api/reports') && request.method !== 'GET';
+  // Identity/permissions must always come from the network. If a request
+  // hiccup ever made the fetch() below reject, falling back to a cached
+  // copy here would silently hand back a stale role (e.g. a user promoted
+  // to admin still looking like a citizen) with no visible error -- which
+  // is exactly the "works after hard refresh, not on normal load" bug
+  // this endpoint was hitting. So it bypasses the service worker entirely.
+  const isIdentity = isApi && url.pathname.startsWith('/api/auth/me');
+  if (isIdentity) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(
@@ -144,7 +142,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for everything else (app shell, static assets).
+  // Next.js build output (JS/CSS chunks) changes on every deploy but often
+  // keeps the same URL in dev, and can be re-requested before a hard reload
+  // clears any stale copy — so these must always be checked against the
+  // network first. Falls back to cache only when truly offline.
+  const isBuildAsset = url.pathname.startsWith('/_next/');
+  if (isBuildAsset && request.method === 'GET') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(APP_SHELL_CACHE).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Cache-first for everything else (icons, manifest, and other rarely
+  // changing static assets).
   if (request.method === 'GET') {
     event.respondWith(
       caches.match(request).then((cached) => {
@@ -219,8 +236,7 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Focuses an already-open Civicदृष्टि tab and navigates it, or opens a new
-// one, when the citizen taps the notification.
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || '/dashboard';
