@@ -38,7 +38,6 @@ export function CivicLogo({ compact = false, light = false }) {
           <p className={light ? 'text-sm font-extrabold tracking-tight text-white' : 'text-sm font-extrabold tracking-tight text-[#102a2b]'}>
             Civic<span className="font-extrabold">दृष्टि</span>
           </p>
-          <p className={light ? 'text-[9px] font-bold uppercase tracking-[0.28em] text-white/70' : 'text-[9px] font-bold uppercase tracking-[0.28em] text-[#8c8272]'}>Civic Archive</p>
         </div>
       )}
     </div>

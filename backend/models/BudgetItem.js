@@ -1,4 +1,4 @@
-﻿const mongoose = require('mongoose');
+const mongoose = require('mongoose');
 
 const budgetItemSchema = new mongoose.Schema({
   user:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -12,6 +12,12 @@ const budgetItemSchema = new mongoose.Schema({
   fundingSources: [{ source: { type: String, trim: true }, amount: { type: Number, default: 0 } }],
   amount:     { type: Number, required: true, default: 0 },
   spent:      { type: Number, default: 0 },
+  originalApprovedBudget: { type: Number, default: 0 },
+  revisedBudget: { type: Number, default: 0 },
+  releasedAmount: { type: Number, default: 0 },
+  disbursedAmount: { type: Number, default: 0 },
+  contractedAmount: { type: Number, default: 0 },
+  paidAmount: { type: Number, default: 0 },
   status:     { type: String, enum: ['planned', 'ongoing', 'completed', 'delayed'], default: 'planned' },
   completionOverride: { type: Number, min: 0, max: 100, default: null },
   fiscalYear: { type: String, required: true },

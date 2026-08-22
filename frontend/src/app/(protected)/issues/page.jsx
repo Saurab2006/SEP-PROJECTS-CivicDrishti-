@@ -29,6 +29,13 @@ const SEVERITY_STYLE = {
   high: 'bg-orange-100 text-orange-700', critical: 'bg-red-100 text-red-700',
 };
 const STATUS_FILTERS = ['all', 'pending', 'verified', 'assigned', 'in-progress', 'completed', 'closed', 'rejected', 'duplicate'];
+const PROVINCES = ['Koshi', 'Madhesh', 'Bagmati', 'Gandaki', 'Lumbini', 'Karnali', 'Sudurpashchim'];
+function isToday(dateLike) {
+  if (!dateLike) return false;
+  const d = new Date(dateLike);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+}
 function StatusBadge({ status }) {
   const label = status === 'completed' ? 'resolved' : String(status || 'pending').replace('-', ' ');
   return <span className={cn('text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md border', STATUS_STYLE[status] || STATUS_STYLE.pending)}>{label}</span>;
@@ -54,6 +61,7 @@ export default function IssuesPage() {
   const [viewFlagged, setViewFlagged] = useState(false);
   const [search, setSearch] = useState('');
   const [severityFilter, setSeverityFilter] = useState('all');
+  const [viewToday, setViewToday] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -87,11 +95,12 @@ export default function IssuesPage() {
       ].filter(Boolean).join(' ').toLowerCase();
       const matchesSearch = !q || searchable.includes(q);
       const matchesSeverity = severityFilter === 'all' || r.severity === severityFilter;
-      return matchesSearch && matchesSeverity;
+      const matchesToday = !viewToday || isToday(r.createdAt);
+      return matchesSearch && matchesSeverity && matchesToday;
     });
-  }, [reports, search, severityFilter, meta.categories]);
+  }, [reports, search, severityFilter, viewToday, meta.categories]);
 
-  useEffect(() => { setPage(1); }, [statusFilter, categoryFilter, viewMine, viewFlagged, search, severityFilter, pageSize]);
+  useEffect(() => { setPage(1); }, [statusFilter, categoryFilter, viewMine, viewFlagged, search, severityFilter, viewToday, pageSize]);
 
   const pageCount = Math.max(1, Math.ceil(filteredReports.length / pageSize));
   const safePage = Math.min(page, pageCount);
@@ -114,12 +123,15 @@ export default function IssuesPage() {
         <option value="all">All severity</option>
         {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
       </select>
-      {isStaff && (
-        <div className="flex flex-wrap gap-2">
-          <FilterToggle active={viewMine} onClick={() => setViewMine(v => !v)} label="Mine" />
-          <FilterToggle active={viewFlagged} onClick={() => setViewFlagged(v => !v)} label="Fake" icon={ShieldAlert} />
-        </div>
-      )}
+      <div className="flex flex-wrap gap-2">
+        <FilterToggle active={viewToday} onClick={() => setViewToday(v => !v)} label="Today" icon={Clock} />
+        {isStaff && (
+          <>
+            <FilterToggle active={viewMine} onClick={() => setViewMine(v => !v)} label="Mine" />
+            <FilterToggle active={viewFlagged} onClick={() => setViewFlagged(v => !v)} label="Fake" icon={ShieldAlert} />
+          </>
+        )}
+      </div>
     </div>
   );
 
@@ -167,6 +179,7 @@ export default function IssuesPage() {
           <option value="all">All categories</option>
           {meta.categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
+        <FilterToggle active={viewToday} onClick={() => setViewToday(v => !v)} label="Today's issues" icon={Clock} />
         {isStaff && (
           <>
             <FilterToggle active={viewMine} onClick={() => setViewMine(v => !v)} label="Assigned/reported by me" />
@@ -372,7 +385,12 @@ function ReportForm({ meta, onClose, onCreated }) {
           <fieldset className="rounded-xl border border-gray-200 p-3.5">
             <legend className="px-1 text-xs font-semibold text-gray-500">Administrative area</legend>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Province"><input value={form.province} onChange={e => set('province', e.target.value)} className="input" /></Field>
+              <Field label="Province">
+                <select value={form.province} onChange={e => set('province', e.target.value)} className="input">
+                  <option value="">Select province</option>
+                  {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </Field>
               <Field label="District"><input value={form.district} onChange={e => set('district', e.target.value)} className="input" /></Field>
               <Field label="Municipality"><input value={form.municipality} onChange={e => set('municipality', e.target.value)} className="input" /></Field>
               <Field label="Ward"><input type="number" min="1" value={form.ward} onChange={e => set('ward', e.target.value)} className="input" /></Field>

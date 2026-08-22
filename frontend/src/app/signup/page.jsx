@@ -30,7 +30,7 @@ export default function SignupPage() {
   return (
     <CivicAuthShell activeTab="signup">
       <h1 className={styles.pageTitle}>Create your account</h1>
-      <p className={styles.pageSub}>Join as a citizen or ward representative to report issues and follow public budgets.</p>
+      <p className={styles.pageSub}></p>
       {error && <div className={styles.errorBox}>{error}</div>}
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className={styles.rowTwo}>

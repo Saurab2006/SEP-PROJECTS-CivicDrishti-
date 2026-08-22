@@ -96,7 +96,6 @@ export default function DashboardPage() {
         <div className="gov-card p-5 sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="gov-label uppercase text-[var(--gov-primary)]">{t('dashboard.pageEyebrow')}</p>
               <h1 className="gov-h1 mt-2">{t('dashboard.pageTitle')}</h1>
             </div>
             <Link href="/issues" className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[var(--gov-primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--gov-primary-dark)] sm:w-auto">
@@ -212,7 +211,6 @@ export default function DashboardPage() {
 
         <div className="gov-card p-5 sm:p-6">
           <h2 className="gov-h2">{t('dashboard.recentActivity')}</h2>
-          <p className="gov-secondary mt-1">{t('dashboard.recentActivitySub')}</p>
           <div className="mt-5 space-y-1">
             {activity.map((item) => {
               const Icon = item.icon;
@@ -320,7 +318,6 @@ function HeroMapPreview({ reports, loading, t }) {
         <div className="w-full rounded-lg bg-white p-4 ring-1 ring-[var(--gov-border)] dark:bg-[#0f172a] lg:w-[260px]">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="gov-label uppercase">{t('dashboard.mapAttention')}</p>
               <h2 className="gov-h3 mt-1">{t('dashboard.mapAreas')}</h2>
             </div>
             <MapPin className="h-5 w-5 text-[var(--gov-primary)]" />
