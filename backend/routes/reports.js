@@ -30,8 +30,8 @@ const REPORT_AUTHORITIES = [
   'Water Supply & Sewerage Corporation', 'Urban Development Dept', 'Electricity Authority',
 ];
 
-// Citizens can reopen a "completed" report within this many days if it
-// wasn't actually fixed — long enough to notice, short enough that the
+// Citizens can reopen a "completed" or "closed" report within this many days
+// if it wasn't actually fixed — long enough to notice, short enough that the
 // work item doesn't stay contestable forever.
 const REOPEN_WINDOW_DAYS = 7;
 
@@ -81,7 +81,7 @@ async function findDuplicateCandidate(category, location, description, newEmbedd
   const districtMatch = new RegExp(`^${(location.district || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 
   const candidates = await IncidentReport.find({
-    category, duplicateOf: null, status: { $nin: ['completed', 'rejected'] },
+    category, duplicateOf: null, status: { $nin: ['completed', 'closed', 'rejected'] },
     'location.district': districtMatch,
     createdAt: { $gt: cutoff },
   });
@@ -104,7 +104,7 @@ async function findDuplicateCandidate(category, location, description, newEmbedd
   // genuinely different issues that just happen to sit near each other.
   if (newEmbedding) {
     const crossCategoryCandidates = await IncidentReport.find({
-      category: { $ne: category }, duplicateOf: null, status: { $nin: ['completed', 'rejected'] },
+      category: { $ne: category }, duplicateOf: null, status: { $nin: ['completed', 'closed', 'rejected'] },
       'location.district': districtMatch,
       createdAt: { $gt: cutoff },
       embedding: { $exists: true, $ne: [] },
@@ -164,10 +164,10 @@ router.get('/stats', protect, async (req, res) => {
     const [total, pending, completed, flagged, duplicates, active] = await Promise.all([
       IncidentReport.countDocuments(filter),
       IncidentReport.countDocuments({ ...filter, status: 'pending' }),
-      IncidentReport.countDocuments({ ...filter, status: 'completed' }),
+      IncidentReport.countDocuments({ ...filter, status: { $in: ['completed', 'closed'] } }),
       IncidentReport.countDocuments({ ...filter, isFake: true }),
       IncidentReport.countDocuments({ ...filter, duplicateOf: { $ne: null } }),
-      IncidentReport.countDocuments({ ...filter, status: { $nin: ['completed', 'rejected', 'duplicate'] } }),
+      IncidentReport.countDocuments({ ...filter, status: { $nin: ['completed', 'closed', 'rejected', 'duplicate'] } }),
     ]);
     res.json({ total, pending, completed, flagged, duplicates, active });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -305,9 +305,9 @@ router.post('/:id/comments', protect, requireVerified, async (req, res) => {
 });
 
 // Lets the original reporter — or staff, on their behalf — reopen a report
-// that was marked complete but the underlying problem wasn't actually
-// fixed. Limited to a short window after completion so old, genuinely
-// resolved work can't be reopened indefinitely.
+// that was marked complete (or already citizen-confirmed as closed) but the
+// underlying problem wasn't actually fixed. Limited to a short window after
+// completion so old, genuinely resolved work can't be reopened indefinitely.
 router.post('/:id/reopen', protect, async (req, res) => {
   try {
     const report = await IncidentReport.findById(req.params.id);
@@ -316,9 +316,10 @@ router.post('/:id/reopen', protect, async (req, res) => {
     const isOwner = String(report.reportedBy) === String(req.user._id);
     const isStaff = ['admin', 'municipality_head', 'ward_rep'].includes(req.user.role);
     if (!isOwner && !isStaff) return res.status(403).json({ error: 'Only the reporter or staff can reopen this report' });
-    if (report.status !== 'completed') return res.status(422).json({ error: 'Only a completed report can be reopened' });
+    if (!['completed', 'closed'].includes(report.status)) return res.status(422).json({ error: 'Only a completed or closed report can be reopened' });
 
-    const deadline = report.completedAt ? new Date(report.completedAt.getTime() + REOPEN_WINDOW_DAYS * 24 * 60 * 60 * 1000) : null;
+    const anchor = report.citizenConfirmedAt || report.completedAt;
+    const deadline = anchor ? new Date(anchor.getTime() + REOPEN_WINDOW_DAYS * 24 * 60 * 60 * 1000) : null;
     if (deadline && Date.now() > deadline.getTime()) {
       return res.status(422).json({ error: `The ${REOPEN_WINDOW_DAYS}-day window to reopen this report has passed` });
     }
@@ -337,6 +338,39 @@ router.post('/:id/reopen', protect, async (req, res) => {
       message: `"${report.title}" was reopened: ${reason}`, link: `/issues/${report._id}`, report: report._id,
     });
     res.json({ report: serializeReport(report, req.user._id) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Lets the original reporter confirm that completed work actually fixed the
+// problem, moving the issue to its true final state. If they don't confirm,
+// the report simply stays "completed" and remains reopenable within the
+// window above — confirming is optional, not a gate to reopening.
+router.post('/:id/confirm', protect, async (req, res) => {
+  try {
+    const report = await IncidentReport.findById(req.params.id);
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+
+    const isOwner = String(report.reportedBy) === String(req.user._id);
+    if (!isOwner) return res.status(403).json({ error: 'Only the original reporter can confirm this report as resolved' });
+    if (report.status !== 'completed') return res.status(422).json({ error: 'Only a completed report can be confirmed' });
+
+    report.status = 'closed';
+    report.citizenConfirmedAt = new Date();
+    report.timeline.push({ action: 'closed', note: 'Citizen confirmed the issue was actually fixed', by: req.user._id });
+    await report.save();
+
+    await notifyRoles(['admin', 'municipality_head'], {
+      type: 'closed', title: 'Citizen confirmed resolution', message: `"${report.title}" was confirmed fixed by the reporter and is now closed.`,
+      link: `/issues/${report._id}`, report: report._id,
+    });
+
+    res.json({ report: serializeReport(report, req.user._id) });
+
+    logAudit(req, {
+      action: 'CITIZEN_CONFIRM_CLOSED', targetType: 'IncidentReport', targetId: report._id, targetLabel: report.title,
+      previousValue: { status: 'completed' }, newValue: { status: 'closed' },
+      district: report.location?.district || '', municipality: report.location?.municipality || '', ward: String(report.location?.ward || ''),
+    });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -379,6 +413,24 @@ router.patch('/:id', protect, async (req, res) => {
       await notifyReporters(report, { type: 'assigned', title: 'Your report was assigned', message: `"${report.title}" was assigned to ${payload.assignedDepartment}.` });
       await notifyReportersSms(report, `Civicदृष्टि: Your report "${report.title.slice(0, 60)}" was assigned to ${payload.assignedDepartment}.`);
       await notifyReportersPush(report, { title: '🔔 Report Assigned', message: `Your report has been assigned to ${payload.assignedDepartment}.` });
+    } else if (action === 'transfer') {
+      if (!payload.assignedDepartment) return res.status(422).json({ error: 'Choose a destination authority to transfer this to' });
+      if (!payload.reason) return res.status(422).json({ error: 'A reason is required to transfer this report' });
+      const fromDept = report.assignedDepartment || 'unassigned';
+      report.assignedDepartment = payload.assignedDepartment;
+      report.assignedContact = payload.assignedContact || '';
+      report.assignedBy = req.user._id;
+      if (!['in-progress'].includes(report.status)) report.status = 'assigned';
+      report.timeline.push({ action: 'transferred', note: `Transferred from ${fromDept} to ${payload.assignedDepartment}: ${payload.reason}`, by: req.user._id });
+      await notifyReporters(report, { type: 'transferred', title: 'Your report was transferred', message: `"${report.title}" was transferred to ${payload.assignedDepartment}.` });
+      await notifyReportersPush(report, { title: '🔔 Report Transferred', message: `Your report has been transferred to ${payload.assignedDepartment}.` });
+    } else if (action === 'escalate') {
+      report.escalated = true;
+      report.escalatedAt = new Date();
+      report.escalationReason = payload.reason || '';
+      report.escalatedBy = req.user._id;
+      report.timeline.push({ action: 'escalated', note: payload.reason || 'Marked urgent for priority attention', by: req.user._id });
+      await notifyRoles(['admin', 'municipality_head'], { type: 'escalated', title: 'Report escalated', message: `"${report.title}" was escalated by ${req.user.name}.`, link: `/issues/${report._id}`, report: report._id });
     } else if (action === 'set-eta') {
       const days = Number(payload.estimatedDays);
       if (!Number.isFinite(days) || days <= 0) return res.status(422).json({ error: 'Enter a valid number of days' });
@@ -397,10 +449,16 @@ router.patch('/:id', protect, async (req, res) => {
       report.completedAt = new Date();
       if (payload.resolutionPhoto) { report.resolutionPhoto = payload.resolutionPhoto; report.resolutionPhotoName = payload.resolutionPhotoName || ''; }
       report.timeline.push({ action: 'completed', note: payload.note || 'Marked complete by official', by: req.user._id });
-      await notifyReporters(report, { type: 'completed', title: 'Issue resolved', message: `Good news - "${report.title}" has been marked complete.` });
-      await notifyReportersSms(report, `Civicदृष्टि: Good news! Your report "${report.title.slice(0, 60)}" has been marked complete.`);
-      await notifyReportersPush(report, { title: '✅ Issue Resolved', message: `The reported issue "${report.title}" has been marked as resolved.` });
-      await notifyRoles(['admin'], { type: 'completed', title: 'Report closed', message: `${req.user.name} closed "${report.title}".`, link: `/issues/${report._id}`, report: report._id });
+      await notifyReporters(report, { type: 'completed', title: 'Issue resolved — please confirm', message: `Good news - "${report.title}" has been marked complete. Please confirm it was actually fixed.` });
+      await notifyReportersSms(report, `Civicदृष्टि: Good news! Your report "${report.title.slice(0, 60)}" has been marked complete. Please confirm in the app.`);
+      await notifyReportersPush(report, { title: '✅ Issue Resolved', message: `The reported issue "${report.title}" has been marked as resolved. Please confirm.` });
+      await notifyRoles(['admin'], { type: 'completed', title: 'Report marked complete', message: `${req.user.name} marked "${report.title}" complete.`, link: `/issues/${report._id}`, report: report._id });
+    } else if (action === 'reject') {
+      if (!payload.reason) return res.status(422).json({ error: 'A reason is required to reject this report' });
+      report.status = 'rejected';
+      report.rejectionReason = payload.reason;
+      report.timeline.push({ action: 'rejected', note: payload.reason, by: req.user._id });
+      await Notification.create({ user: report.reportedBy, type: 'rejected', title: 'Your report was rejected', message: `"${report.title}" was reviewed and rejected: ${payload.reason}`, link: `/issues/${report._id}`, report: report._id });
     } else if (action === 'mark-fake') {
       if (!payload.reason) return res.status(422).json({ error: 'Give a reason so it can be reviewed later' });
       report.isFake = true;
@@ -424,9 +482,12 @@ router.patch('/:id', protect, async (req, res) => {
     await report.save();
     res.json({ report: serializeReport(report, req.user._id) });
 
-    const auditAction = action === 'assign' ? 'ASSIGN_AUTHORITY' : action === 'mark-fake' ? 'MARK_FAKE' : 'CHANGE_REPORT_STATUS';
+    const AUDIT_ACTION_MAP = {
+      assign: 'ASSIGN_AUTHORITY', transfer: 'TRANSFER_REPORT', escalate: 'ESCALATE_REPORT',
+      'mark-fake': 'MARK_FAKE', reject: 'REJECT_REPORT', 'mark-duplicate': 'MARK_DUPLICATE',
+    };
     logAudit(req, {
-      action: auditAction,
+      action: AUDIT_ACTION_MAP[action] || 'CHANGE_REPORT_STATUS',
       targetType: 'IncidentReport',
       targetId: report._id,
       targetLabel: report.title,

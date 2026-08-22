@@ -43,7 +43,7 @@ const incidentReportSchema = new mongoose.Schema({
   supportThresholdReachedAt: { type: Date, default: null },
   comments:        [commentSchema],
 
-  // AI enrichment â€” populated best-effort at creation time. Never required,
+  // AI enrichment — populated best-effort at creation time. Never required,
   // so the app behaves identically whether or not GEMINI_API_KEY is set.
   embedding:            { type: [Number], default: undefined },
   language:             { type: String, trim: true, default: '' },
@@ -51,13 +51,17 @@ const incidentReportSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['pending', 'verified', 'assigned', 'in-progress', 'completed', 'rejected', 'duplicate'],
+    enum: ['pending', 'verified', 'assigned', 'in-progress', 'completed', 'closed', 'rejected', 'duplicate'],
     default: 'pending',
   },
 
   estimatedDays: { type: Number, default: 3 },
   dueDate:       { type: Date },
   completedAt:   { type: Date },
+
+  // Set when the citizen confirms the completed work actually fixed the
+  // problem — the last step before an issue is considered fully closed.
+  citizenConfirmedAt: { type: Date },
 
   // Proof-of-resolution photo, captured separately from the intake photo so
   // "completed" comes with visible before/after evidence, not just a status flip.
@@ -75,6 +79,17 @@ const incidentReportSchema = new mongoose.Schema({
 
   isFake:     { type: Boolean, default: false },
   fakeReason: { type: String, trim: true, default: '' },
+
+  // Distinct from isFake/fakeReason — this is a genuine "not actionable"
+  // rejection by staff (e.g. outside jurisdiction), not a fraud flag.
+  rejectionReason: { type: String, trim: true, default: '' },
+
+  // An issue can be escalated (marked urgent) without changing its
+  // underlying status — it's a flag layered on top, like isFake.
+  escalated:        { type: Boolean, default: false },
+  escalatedAt:      { type: Date },
+  escalationReason: { type: String, trim: true, default: '' },
+  escalatedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
   duplicateOf:   { type: mongoose.Schema.Types.ObjectId, ref: 'IncidentReport', default: null },
   confirmations: { type: Number, default: 1 },

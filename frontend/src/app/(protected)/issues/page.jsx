@@ -6,7 +6,7 @@ import { relativeTime, cn } from '@/lib/format';
 import { toast } from 'sonner';
 import {
   AlertTriangle, MapPin, Plus, ArrowRight, Clock, Copy, ShieldAlert,
-  Loader2, X, ImagePlus, ShieldCheck,
+  Loader2, X, ImagePlus, ShieldCheck, Search,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,7 @@ const STATUS_STYLE = {
   assigned: 'bg-violet-50 text-violet-700 border-violet-100',
   'in-progress': 'bg-cyan-50 text-cyan-700 border-cyan-100',
   completed: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  closed: 'bg-teal-50 text-teal-700 border-teal-100',
   rejected: 'bg-gray-100 text-gray-500 border-gray-200',
   duplicate: 'bg-gray-100 text-gray-500 border-gray-200',
 };
@@ -27,8 +28,7 @@ const SEVERITY_STYLE = {
   low: 'bg-gray-100 text-gray-600', medium: 'bg-amber-100 text-amber-700',
   high: 'bg-orange-100 text-orange-700', critical: 'bg-red-100 text-red-700',
 };
-const STATUS_FILTERS = ['all', 'pending', 'verified', 'assigned', 'in-progress', 'completed', 'rejected', 'duplicate'];
-
+const STATUS_FILTERS = ['all', 'pending', 'verified', 'assigned', 'in-progress', 'completed', 'closed', 'rejected', 'duplicate'];
 function StatusBadge({ status }) {
   const label = status === 'completed' ? 'resolved' : String(status || 'pending').replace('-', ' ');
   return <span className={cn('text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md border', STATUS_STYLE[status] || STATUS_STYLE.pending)}>{label}</span>;

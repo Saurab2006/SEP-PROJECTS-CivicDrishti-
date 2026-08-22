@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import {
   ArrowLeft, MapPin, Clock, Copy, ShieldAlert, CheckCircle2, UserCheck,
   PlayCircle, Loader2, Star, Map as MapIcon, Radio, Plus, ShieldCheck, ShieldQuestion, ThumbsUp, MessageCircle, Send,
-  Camera, RotateCcw, Languages,
+  Camera, RotateCcw, Languages, XCircle, ArrowRightLeft, Siren, ThumbsDown,
 } from 'lucide-react';
 
 function fileToDataUrl(file) {
@@ -19,8 +19,6 @@ function fileToDataUrl(file) {
   });
 }
 
-// Mirrors the server's REOPEN_WINDOW_DAYS — purely for showing/hiding the
-// Reopen button client-side; the server enforces the real deadline.
 const REOPEN_WINDOW_DAYS = 7;
 
 const REPORTER_VERIFICATION_STYLE = {
@@ -36,13 +34,12 @@ const STATUS_STYLE = {
   assigned: 'bg-violet-50 text-violet-700 border-violet-100',
   'in-progress': 'bg-cyan-50 text-cyan-700 border-cyan-100',
   completed: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+  closed: 'bg-teal-50 text-teal-700 border-teal-100',
   rejected: 'bg-gray-100 text-gray-500 border-gray-200',
   duplicate: 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
-// Ordered progression used to show the reporter a "live" sense of where the
-// work stands, independent of the free-form timeline notes below it.
-const LIVE_STEPS = ['pending', 'verified', 'assigned', 'in-progress', 'completed'];
+const LIVE_STEPS = ['pending', 'verified', 'assigned', 'in-progress', 'completed', 'closed'];
 
 export default function ReportDetailPage() {
   const { id } = useParams();
@@ -70,6 +67,18 @@ export default function ReportDetailPage() {
   const [showReopenBox, setShowReopenBox] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   const [reopenBusy, setReopenBusy] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+
+  const [showRejectBox, setShowRejectBox] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+
+  const [showTransferBox, setShowTransferBox] = useState(false);
+  const [transferDept, setTransferDept] = useState('');
+  const [transferContact, setTransferContact] = useState('');
+  const [transferReason, setTransferReason] = useState('');
+
+  const [showEscalateBox, setShowEscalateBox] = useState(false);
+  const [escalateReason, setEscalateReason] = useState('');
 
   const [authority, setAuthority] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -81,14 +90,16 @@ export default function ReportDetailPage() {
   const load = () => {
     setLoading(true);
     Promise.all([get(`/api/reports/${id}`), get('/api/reports/meta')])
-      .then(([r, m]) => { setReport(r.report); setMeta(m); setEtaDays(String(r.report.estimatedDays)); setAssignDept(r.report.assignedDepartment || m.authorities[0]); setAssignContact(r.report.assignedContact || ''); })
+      .then(([r, m]) => {
+        setReport(r.report); setMeta(m); setEtaDays(String(r.report.estimatedDays));
+        setAssignDept(r.report.assignedDepartment || m.authorities[0]); setAssignContact(r.report.assignedContact || '');
+        setTransferDept(m.authorities.find(a => a !== r.report.assignedDepartment) || m.authorities[0]);
+      })
       .catch(() => toast.error('Failed to load report'))
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
-  // Once we know which authority this report is assigned to, look up its
-  // profile + reviews so people can see (and rate) how it's performing.
   useEffect(() => {
     if (!report?.assignedDepartment) { setAuthority(null); setReviews([]); return; }
     get('/api/authorities').then(({ authorities }) => {
@@ -169,13 +180,47 @@ export default function ReportDetailPage() {
     } catch (err) { toast.error(err.message); }
     setReopenBusy(false);
   };
+
+  const doConfirm = async () => {
+    setConfirmBusy(true);
+    try {
+      const { report: updated } = await post(`/api/reports/${id}/confirm`, {});
+      setReport(prev => ({ ...updated, duplicates: prev?.duplicates || [] }));
+      toast.success('Thanks for confirming — issue closed');
+    } catch (err) { toast.error(err.message); }
+    setConfirmBusy(false);
+  };
+
+  const doReject = async () => {
+    if (!rejectReason.trim()) { toast.error('A reason is required to reject this report'); return; }
+    await act('reject', { reason: rejectReason.trim() }, 'Report rejected');
+    setShowRejectBox(false); setRejectReason('');
+  };
+
+  const doTransfer = async () => {
+    if (!transferDept) { toast.error('Choose a destination authority'); return; }
+    if (!transferReason.trim()) { toast.error('A reason is required to transfer this report'); return; }
+    await act('transfer', { assignedDepartment: transferDept, assignedContact: transferContact, reason: transferReason.trim() }, 'Report transferred');
+    setShowTransferBox(false); setTransferReason(''); setTransferContact('');
+  };
+
+  const doEscalate = async () => {
+    await act('escalate', { reason: escalateReason.trim() }, 'Report escalated');
+    setShowEscalateBox(false); setEscalateReason('');
+  };
+
   if (loading) return <div className="max-w-[900px] mx-auto space-y-4"><div className="shimmer h-8 w-40 rounded-lg" /><div className="shimmer h-64 rounded-2xl" /></div>;
   if (!report) return <div className="max-w-[900px] mx-auto text-center py-16 text-gray-400">Report not found.</div>;
 
   const categoryLabel = meta.categories.find(c => c.value === report.category)?.label || report.category;
   const isOwner = report.reportedBy && user && String(report.reportedBy._id) === String(user._id);
-  const reopenDeadline = report.completedAt ? new Date(new Date(report.completedAt).getTime() + REOPEN_WINDOW_DAYS * 24 * 60 * 60 * 1000) : null;
-  const canReopen = report.status === 'completed' && (isOwner || isStaff) && (!reopenDeadline || Date.now() < reopenDeadline.getTime());
+
+  const canConfirm = report.status === 'completed' && isOwner;
+  const reopenAnchor = report.citizenConfirmedAt || report.completedAt;
+  const reopenDeadline = reopenAnchor ? new Date(new Date(reopenAnchor).getTime() + REOPEN_WINDOW_DAYS * 24 * 60 * 60 * 1000) : null;
+  const canReopen = ['completed', 'closed'].includes(report.status) && (isOwner || isStaff) && (!reopenDeadline || Date.now() < reopenDeadline.getTime());
+
+  const canManage = isStaff && !['completed', 'closed', 'rejected'].includes(report.status);
 
   return (
     <>
@@ -197,10 +242,11 @@ export default function ReportDetailPage() {
       <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className={cn('text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md border', STATUS_STYLE[report.status])}>{report.status.replace('-', ' ')}</span>
               <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md bg-gray-100 text-gray-600">{report.severity}</span>
               {report.isFake && <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md bg-red-50 text-red-700 flex items-center gap-1"><ShieldAlert className="w-3 h-3" />Flagged fake</span>}
+              {report.escalated && <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md bg-orange-50 text-orange-700 flex items-center gap-1"><Siren className="w-3 h-3" />Escalated</span>}
             </div>
             <h1 className="text-xl font-bold text-gray-900 mt-2">{report.title}</h1>
             <p className="text-sm text-gray-500 mt-1 flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{report.location.address}{report.location.district ? `, ${report.location.district}` : ''}{report.location.ward ? `, Ward ${report.location.ward}` : ''}</p>
@@ -210,6 +256,20 @@ export default function ReportDetailPage() {
             <p className="text-xs text-gray-400 mt-1">Reported {relativeTime(report.createdAt)}</p>
           </div>
         </div>
+
+        {report.status === 'rejected' && report.rejectionReason && (
+          <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1"><XCircle className="w-3 h-3" />Rejected</p>
+            <p className="text-sm text-gray-700 mt-1">{report.rejectionReason}</p>
+          </div>
+        )}
+
+        {report.escalated && report.escalationReason && (
+          <div className="rounded-lg bg-orange-50 border border-orange-100 px-3 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-700 flex items-center gap-1"><Siren className="w-3 h-3" />Escalation reason</p>
+            <p className="text-sm text-orange-900 mt-1">{report.escalationReason}</p>
+          </div>
+        )}
 
         <p className="text-sm text-gray-700 leading-relaxed">{report.description}</p>
         {report.translatedDescription && (
@@ -237,15 +297,15 @@ export default function ReportDetailPage() {
         )}
 
         <div className="flex flex-wrap gap-2 pt-1">
-          <InfoPill icon={Clock} label={report.status === 'completed' ? `Resolved ${relativeTime(report.completedAt)}` : `AI estimate: ${report.estimatedDays} day(s) — due ${new Date(report.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`} />
+          <InfoPill icon={Clock} label={['completed', 'closed'].includes(report.status) ? `Resolved ${relativeTime(report.completedAt)}` : `AI estimate: ${report.estimatedDays} day(s) — due ${new Date(report.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`} />
           {report.confirmations > 1 && <InfoPill icon={Copy} label={`${report.confirmations} citizens reported this issue`} />}
-          {report.assignedDepartment && <InfoPill icon={UserCheck} label={`Assigned to ${report.assignedDepartment}${report.assignedContact ? ` Â· ${report.assignedContact}` : ''}`} />}
+          {report.assignedDepartment && <InfoPill icon={UserCheck} label={`Assigned to ${report.assignedDepartment}${report.assignedContact ? ` - ${report.assignedContact}` : ''}`} />}
         </div>
 
         {report.reportedBy && (
           <div className="flex items-center gap-2 pt-2 border-t border-gray-50 flex-wrap">
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, hsl(${report.reportedBy.avatarHue} 65% 52%), hsl(${(report.reportedBy.avatarHue + 40) % 360} 60% 45%))` }}>{initials(report.reportedBy.name)}</div>
-            <p className="text-xs text-gray-500">Reported by <span className="font-medium text-gray-700">{report.reportedBy.name}</span>{report.reporterContact ? ` Â· ${report.reporterContact}` : ''}</p>
+            <p className="text-xs text-gray-500">Reported by <span className="font-medium text-gray-700">{report.reportedBy.name}</span>{report.reporterContact ? ` - ${report.reporterContact}` : ''}</p>
             {isStaff && report.reportedBy.verificationStatus && REPORTER_VERIFICATION_STYLE[report.reportedBy.verificationStatus] && (() => {
               const v = REPORTER_VERIFICATION_STYLE[report.reportedBy.verificationStatus];
               return (
@@ -264,7 +324,7 @@ export default function ReportDetailPage() {
 
       <MapCard location={report.location} />
 
-      {isStaff && !['completed', 'rejected'].includes(report.status) && (
+      {canManage && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-5">
           <h3 className="text-sm font-semibold text-gray-900">Manage this report</h3>
 
@@ -301,6 +361,9 @@ export default function ReportDetailPage() {
             {report.status === 'pending' && <ActionButton icon={CheckCircle2} label="Verify" onClick={() => act('verify', {}, 'Marked verified')} busy={busy} />}
             {['assigned', 'verified'].includes(report.status) && <ActionButton icon={PlayCircle} label="Start work" onClick={() => act('start', {}, 'Work started')} busy={busy} />}
             <ActionButton icon={CheckCircle2} label="Mark completed" tone="success" onClick={() => setShowCompleteBox(s => !s)} busy={busy} />
+            <ActionButton icon={ArrowRightLeft} label="Transfer" onClick={() => setShowTransferBox(s => !s)} busy={busy} />
+            {!report.escalated && <ActionButton icon={Siren} label="Escalate" onClick={() => setShowEscalateBox(s => !s)} busy={busy} />}
+            <ActionButton icon={XCircle} label="Reject" tone="danger" onClick={() => setShowRejectBox(s => !s)} busy={busy} />
             <ActionButton icon={ShieldAlert} label="Flag as fake" tone="danger" onClick={() => setShowFakeBox(s => !s)} busy={busy} />
           </div>
 
@@ -309,13 +372,40 @@ export default function ReportDetailPage() {
               <input value={completeNote} onChange={e => setCompleteNote(e.target.value)} placeholder="Optional note about how it was resolved" className="w-full h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand-500" />
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50 cursor-pointer">
-                  <Camera className="w-3.5 h-3.5" />{photoBusy ? 'Reading photo…' : resolutionPhotoName || 'Attach proof photo (optional)'}
+                  <Camera className="w-3.5 h-3.5" />{photoBusy ? 'Reading photo...' : resolutionPhotoName || 'Attach proof photo (optional)'}
                   <input type="file" accept="image/*" className="hidden" onChange={handleResolutionPhoto} disabled={photoBusy} />
                 </label>
                 {resolutionPhoto && <button type="button" onClick={() => { setResolutionPhoto(''); setResolutionPhotoName(''); }} className="text-xs text-gray-400 hover:text-gray-600">Remove</button>}
               </div>
               {resolutionPhoto && <img src={resolutionPhoto} alt="Proof preview" className="max-h-40 rounded-lg border border-gray-100 object-cover" />}
               <button disabled={busy || photoBusy} onClick={confirmComplete} className="h-9 px-3 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-60">Confirm complete</button>
+            </div>
+          )}
+
+          {showTransferBox && (
+            <div className="space-y-2 pt-1">
+              <div className="flex gap-2">
+                <select value={transferDept} onChange={e => setTransferDept(e.target.value)} className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand-500">
+                  {meta.authorities.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+                <input value={transferContact} onChange={e => setTransferContact(e.target.value)} placeholder="Contact (optional)" className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand-500" />
+              </div>
+              <input value={transferReason} onChange={e => setTransferReason(e.target.value)} placeholder="Why is this being transferred?" className="w-full h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand-500" />
+              <button disabled={busy || !transferReason.trim()} onClick={doTransfer} className="h-9 px-3 rounded-lg bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 disabled:opacity-60">Confirm transfer</button>
+            </div>
+          )}
+
+          {showEscalateBox && (
+            <div className="flex gap-2 pt-1">
+              <input value={escalateReason} onChange={e => setEscalateReason(e.target.value)} placeholder="Why does this need urgent attention? (optional)" className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-orange-400" />
+              <button disabled={busy} onClick={doEscalate} className="h-9 px-3 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-700 disabled:opacity-60">Confirm escalate</button>
+            </div>
+          )}
+
+          {showRejectBox && (
+            <div className="flex gap-2 pt-1">
+              <input value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Why is this being rejected?" className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-red-400" />
+              <button disabled={busy || !rejectReason.trim()} onClick={doReject} className="h-9 px-3 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 disabled:opacity-60">Confirm reject</button>
             </div>
           )}
 
@@ -328,7 +418,30 @@ export default function ReportDetailPage() {
         </div>
       )}
 
-      {canReopen && (
+      {canConfirm && (
+        <div className="bg-white rounded-2xl border border-emerald-100 p-6 shadow-sm space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600" />Was this actually fixed?</h3>
+            <p className="mt-1 text-xs text-gray-500">An official marked this complete. Please confirm so we can close it out — or tell us it's still not fixed.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button disabled={confirmBusy} onClick={doConfirm} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
+              {confirmBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ThumbsUp className="w-3.5 h-3.5" />}Yes, it's fixed
+            </button>
+            {!showReopenBox && <ActionButton icon={ThumbsDown} label="No, still broken" onClick={() => setShowReopenBox(true)} busy={reopenBusy} />}
+          </div>
+          {showReopenBox && (
+            <div className="flex gap-2">
+              <input value={reopenReason} onChange={e => setReopenReason(e.target.value)} placeholder="What still needs fixing?" className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-amber-400" />
+              <button disabled={reopenBusy || !reopenReason.trim()} onClick={doReopen} className="h-9 px-3 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 disabled:opacity-60">
+                {reopenBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Reopen'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!canConfirm && canReopen && (
         <div className="bg-white rounded-2xl border border-amber-100 p-6 shadow-sm space-y-3">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
@@ -382,7 +495,7 @@ export default function ReportDetailPage() {
       </div>
 
       {report.assignedDepartment && (
-        <ReviewsCard authority={authority} authorityName={report.assignedDepartment} reportId={report._id} reviews={reviews} onChanged={refreshReviews} canRate={report.status === 'completed'} currentUserId={user?._id} />
+        <ReviewsCard authority={authority} authorityName={report.assignedDepartment} reportId={report._id} reviews={reviews} onChanged={refreshReviews} canRate={['completed', 'closed'].includes(report.status)} currentUserId={user?._id} />
       )}
     </div>
     {showIdDoc && isStaff && report.reportedBy && (
@@ -428,14 +541,14 @@ function IdDocModal({ userId, userName, onClose }) {
 function LiveTrackingCard({ report }) {
   const stepIndex = LIVE_STEPS.indexOf(report.status);
   const dueDate = report.dueDate ? new Date(report.dueDate) : null;
-  const overdue = dueDate && report.status !== 'completed' && dueDate.getTime() < Date.now();
+  const overdue = dueDate && !['completed', 'closed'].includes(report.status) && dueDate.getTime() < Date.now();
   const daysLeft = dueDate ? Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Radio className="w-4 h-4 text-brand-500" />Live tracking</h3>
-        {report.status !== 'completed' && (
+        {!['completed', 'closed'].includes(report.status) && (
           <span className={cn('text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md', overdue ? 'bg-red-50 text-red-700' : 'bg-gray-100 text-gray-600')}>
             {overdue ? `${Math.abs(daysLeft)} day(s) overdue` : daysLeft != null ? `${daysLeft} day(s) left` : ''}
           </span>
@@ -469,7 +582,7 @@ function CommunityCard({ report, commentText, setCommentText, busy, onSupport, o
           <p className="mt-1 text-xs text-gray-500">Citizens can support the report and add public context.</p>
         </div>
         <button disabled={busy} onClick={onSupport} className={cn('inline-flex h-10 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors disabled:opacity-60', report.hasSupported ? 'bg-brand-500 text-white hover:bg-brand-600' : 'bg-brand-50 text-brand-700 hover:bg-brand-100')}>
-          <ThumbsUp className="w-4 h-4" />{report.hasSupported ? 'Supported' : 'Support'} · {report.supportCount || 0}
+          <ThumbsUp className="w-4 h-4" />{report.hasSupported ? 'Supported' : 'Support'} - {report.supportCount || 0}
         </button>
       </div>
 
@@ -483,7 +596,7 @@ function CommunityCard({ report, commentText, setCommentText, busy, onSupport, o
           <div key={comment._id || comment.createdAt} className="flex gap-3 text-xs">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[10px] font-bold text-white">{initials(comment.user?.name || 'Citizen')}</div>
             <div>
-              <p className="font-semibold text-gray-800">{comment.user?.name || 'Citizen'} <span className="font-normal text-gray-400">· {relativeTime(comment.createdAt)}</span></p>
+              <p className="font-semibold text-gray-800">{comment.user?.name || 'Citizen'} <span className="font-normal text-gray-400">- {relativeTime(comment.createdAt)}</span></p>
               <p className="mt-0.5 text-gray-600">{comment.text}</p>
             </div>
           </div>
@@ -494,32 +607,32 @@ function CommunityCard({ report, commentText, setCommentText, busy, onSupport, o
 }
 function MapCard({ location }) {
   const hasCoords = Number.isFinite(location?.lat) && Number.isFinite(location?.lng);
+  const lat = location?.lat;
+  const lng = location?.lng;
+  const bbox = hasCoords ? `${lng - 0.01}%2C${lat - 0.01}%2C${lng + 0.01}%2C${lat + 0.01}` : '';
+  const mapSrc = hasCoords ? `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}` : '';
+  const mapLink = hasCoords ? `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}` : '';
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-3">
       <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><MapIcon className="w-4 h-4 text-gray-400" />Location</h3>
       {hasCoords ? (
         <div className="rounded-xl overflow-hidden border border-gray-100">
-          <iframe
-            title="Report location"
-            className="w-full h-64"
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=${location.lng - 0.01}%2C${location.lat - 0.01}%2C${location.lng + 0.01}%2C${location.lat + 0.01}&layer=mapnik&marker=${location.lat}%2C${location.lng}`}
-          />
-          <a
-            className="block text-center text-xs text-brand-600 hover:underline py-2 bg-gray-50"
-            href={`https://www.openstreetmap.org/?mlat=${location.lat}&mlon=${location.lng}#map=17/${location.lat}/${location.lng}`}
-            target="_blank" rel="noreferrer"
-          >
+          <iframe title="Report location" className="w-full h-64" src={mapSrc} />
+          <a className="block text-center text-xs text-brand-600 hover:underline py-2 bg-gray-50" href={mapLink} target="_blank" rel="noreferrer">
             Open larger map
           </a>
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-xs text-gray-400">
-          No GPS coordinates were pinned for this report — only the written address is available.
+          No GPS coordinates were pinned for this report - only the written address is available.
         </div>
       )}
     </div>
   );
 }
+          
+            
 
 function ReviewsCard({ authority, authorityName, reportId, reviews, onChanged, canRate, currentUserId }) {
   const myReview = currentUserId ? reviews.find(r => r.user?._id === currentUserId) : null;
@@ -527,15 +640,13 @@ function ReviewsCard({ authority, authorityName, reportId, reviews, onChanged, c
   const [comment, setComment] = useState(myReview?.comment || '');
   const [submitting, setSubmitting] = useState(false);
 
-  // Keep the form in sync if reviews reload with a different (or new) review
-  // from this user, e.g. right after submitting.
   useEffect(() => {
     if (myReview) { setRating(myReview.rating); setComment(myReview.comment || ''); }
     // eslint-disable-next-line
   }, [myReview?._id]);
 
   const submitReview = async () => {
-    if (!authority) { toast.error('This authority isn\'t registered yet — ask an admin to add it'); return; }
+    if (!authority) { toast.error("This authority isn't registered yet - ask an admin to add it"); return; }
     setSubmitting(true);
     try {
       await post(`/api/authorities/${authority._id}/reviews`, { rating, comment, report: reportId });
@@ -548,7 +659,7 @@ function ReviewsCard({ authority, authorityName, reportId, reviews, onChanged, c
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">Reviews — {authorityName}</h3>
+        <h3 className="text-sm font-semibold text-gray-900">Reviews - {authorityName}</h3>
         {authority && (
           <span className="flex items-center gap-1 text-xs font-semibold text-amber-600">
             <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />{authority.ratingAvg?.toFixed(1) || '0.0'}
@@ -577,7 +688,7 @@ function ReviewsCard({ authority, authorityName, reportId, reviews, onChanged, c
 
       <div className="space-y-3 pt-2 border-t border-gray-50">
         {reviews.length === 0 ? (
-          <p className="text-xs text-gray-400">No reviews yet — be the first to rate this authority.</p>
+          <p className="text-xs text-gray-400">No reviews yet - be the first to rate this authority.</p>
         ) : reviews.map(r => (
           <div key={r._id} className="flex items-start justify-between gap-3 text-xs">
             <div>
