@@ -14,6 +14,8 @@ import { loadFaceModels, getFaceDescriptor, compareDescriptors, loadImageFromDat
 
 function fileToDataUrl(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error('Could not read the file')); reader.readAsDataURL(file); }); }
 
+const PROVINCE_OPTIONS = ['Koshi Province', 'Madhesh Province', 'Bagmati Province', 'Gandaki Province', 'Lumbini Province', 'Karnali Province', 'Sudurpashchim Province'];
+
 export default function SettingsPage() {
   const { user, verifyEmail, resendEmailOtp, verifyIdentity, updateLocation } = useAuth();
   const { locale, setLocale, t } = useLanguage();
@@ -166,7 +168,10 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-[#65706c]">Update your civic address so local reports and supports count in the correct ward.</p>
         {addressLocked && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">You can change your address again on {nextAddressChangeAt.toLocaleDateString(locale === 'ne' ? 'ne-NP' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })}. Address changes are limited to once every 6 months.</p>}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <input disabled={addressLocked} value={address.province} onChange={e => setAddress(a => ({ ...a, province: e.target.value }))} placeholder="Province" className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:opacity-50" />
+          <select disabled={addressLocked} value={address.province} onChange={e => setAddress(a => ({ ...a, province: e.target.value }))} className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:opacity-50">
+            <option value="">Select province</option>
+            {PROVINCE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
           <input disabled={addressLocked} value={address.district} onChange={e => setAddress(a => ({ ...a, district: e.target.value }))} placeholder="District" className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:opacity-50" />
           <input disabled={addressLocked} value={address.municipality} onChange={e => setAddress(a => ({ ...a, municipality: e.target.value }))} placeholder="Municipality" className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:opacity-50" />
           <input disabled={addressLocked} type="number" min="1" value={address.ward} onChange={e => setAddress(a => ({ ...a, ward: e.target.value }))} placeholder="Ward" className="h-10 rounded-lg border border-[#ded6c8] bg-[#fffaf2] px-3 text-sm outline-none focus:border-[#0f3d3e] disabled:opacity-50" />

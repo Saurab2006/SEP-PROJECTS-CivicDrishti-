@@ -23,6 +23,19 @@ function wardValue(value) {
   return String(value || '').replace(/^Ward\s+/i, '').trim().replace(/^0+(?=\d)/, '');
 }
 function sameWard(a, b) { return wardValue(a) === wardValue(b); }
+// Case/whitespace-tolerant compare for province/district/municipality names.
+// The public budget totals (backend-filtered) are lenient about this, but
+// this page's own drill-down filter used to be a strict === match, so a
+// stray space or capitalization difference in how a project's location was
+// entered could make an approved record vanish from the drilled-down list
+// even though it was correctly counted in ward-level totals.
+function sameName(a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); }
+// Province specifically also needs to tolerate the short form ("Koshi")
+// against the full stored form ("Koshi Province") — citizens type the short
+// form into a free-text field on Settings, but budget records always carry
+// the full official name.
+function provinceBase(value) { return String(value || '').trim().toLowerCase().replace(/\s+province$/, ''); }
+function sameProvince(a, b) { return provinceBase(a) === provinceBase(b); }
 
 function flowFor(item) {
   const flow = item.financialFlow || {};
@@ -71,11 +84,11 @@ export default function BudgetPage() {
     if (!canPropose) return false;
     if (user?.role === 'ward_rep') {
       const a = user?.wardRepresentativeApplication || {};
-      return (item.province || 'Koshi Province') === (a.province || 'Koshi Province') && item.district === a.district && item.municipality === a.municipality && sameWard(item.ward, a.ward);
+      return sameProvince(item.province || 'Koshi Province', a.province || 'Koshi Province') && sameName(item.district, a.district) && sameName(item.municipality, a.municipality) && sameWard(item.ward, a.ward);
     }
     if (user?.role === 'municipality_head') {
       const a = user?.municipalityHeadProfile || {};
-      return (item.province || 'Koshi Province') === (a.province || 'Koshi Province') && item.district === a.district && item.municipality === a.municipality;
+      return sameProvince(item.province || 'Koshi Province', a.province || 'Koshi Province') && sameName(item.district, a.district) && sameName(item.municipality, a.municipality);
     }
     return false;
   };
@@ -235,9 +248,9 @@ export default function BudgetPage() {
 
   const filteredItems = useMemo(() => items.filter(item => {
     const [province, district, municipality, ward] = path;
-    if (province && (item.province || 'Koshi Province') !== province.name) return false;
-    if (district && item.district !== district.name) return false;
-    if (municipality && municipality.name && item.municipality !== municipality.name) return false;
+    if (province && !sameProvince(item.province || 'Koshi Province', province.name)) return false;
+    if (district && !sameName(item.district, district.name)) return false;
+    if (municipality && municipality.name && !sameName(item.municipality, municipality.name)) return false;
     if (ward && !sameWard(item.ward, ward.name)) return false;
     if (recordStatus !== 'all' && (item.status || 'planned') !== recordStatus) return false;
     if (recordQuery.trim()) {

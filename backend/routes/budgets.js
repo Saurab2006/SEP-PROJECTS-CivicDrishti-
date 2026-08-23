@@ -44,12 +44,29 @@ function publicBudgetItem(i) {
 }
 function csvEscape(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
 
+// Case- and whitespace-insensitive exact match. Location names on budget
+// records are free-typed by officials (municipality heads / ward reps), so
+// "Morang" vs "morang " vs "Morang" would previously fail a strict ===
+// match and silently return zero results — even for a citizen's own,
+// correctly-approved ward budget. Ward numbers already got this treatment
+// via wardVariants(); province/district/municipality now get it too.
+function escapeRegExp(value) { return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function exactCI(value) { return { $regex: `^${escapeRegExp(String(value).trim())}$`, $options: 'i' }; }
+// Province is also free-typed on the citizen's own Settings page, where
+// people naturally type the short form ("Koshi") while budget records store
+// the official full name ("Koshi Province"). Match either form: the query
+// value with or without a trailing "Province".
+function provinceMatch(value) {
+  const norm = escapeRegExp(String(value || '').trim().replace(/\s+province$/i, ''));
+  return { $regex: `^${norm}(\\s+province)?$`, $options: 'i' };
+}
+
 function buildBudgetFilter(req) {
   const q = req.query || req || {};
   const filter = {};
-  if (q.province && q.province !== 'all') filter.province = q.province;
-  if (q.district && q.district !== 'all') filter.district = q.district;
-  if (q.municipality && q.municipality !== 'all') filter.municipality = q.municipality;
+  if (q.province && q.province !== 'all') filter.province = provinceMatch(q.province);
+  if (q.district && q.district !== 'all') filter.district = exactCI(q.district);
+  if (q.municipality && q.municipality !== 'all') filter.municipality = exactCI(q.municipality);
   if (q.ward && q.ward !== 'all') filter.ward = q.ward;
   if (q.department && q.department !== 'all') filter.department = q.department;
   if (q.sector && q.sector !== 'all') filter.sector = q.sector;
@@ -92,10 +109,10 @@ async function resolveWardUnitId({ province, district, municipality, ward, creat
   return doc?._id || null;
 }
 function wardLabel(value) {
-  const raw = String(value || '').replace(/^Ward\\s+/i, '').trim();
+  const raw = String(value || '').replace(/^Ward\s+/i, '').trim();
   if (!raw) return 'Ward not specified';
   const num = Number.parseInt(raw, 10);
-  return Number.isFinite(num) ? Ward  : Ward ;
+  return Number.isFinite(num) ? `Ward ${num}` : `Ward ${raw}`;
 }
 function wardVariants(value) {
   const raw = String(value || '').replace(/^Ward\s+/i, '').trim();
@@ -157,11 +174,11 @@ async function syncApprovedCreatedBudgets() {
 function budgetManagementFilter(user, id) {
   if (user.role === 'ward_rep') {
     const a = user.wardRepresentativeApplication || {};
-    return { _id: id, province: a.province || 'Koshi Province', district: a.district || '__none__', municipality: a.municipality || '__none__', ward: { $in: wardVariants(a.ward) } };
+    return { _id: id, province: provinceMatch(a.province || 'Koshi Province'), district: exactCI(a.district || '__none__'), municipality: exactCI(a.municipality || '__none__'), ward: { $in: wardVariants(a.ward) } };
   }
   if (user.role === 'municipality_head') {
     const a = user.municipalityHeadProfile || {};
-    return { _id: id, province: a.province || 'Koshi Province', district: a.district || '__none__', municipality: a.municipality || '__none__' };
+    return { _id: id, province: provinceMatch(a.province || 'Koshi Province'), district: exactCI(a.district || '__none__'), municipality: exactCI(a.municipality || '__none__') };
   }
   return { _id: id };
 }
