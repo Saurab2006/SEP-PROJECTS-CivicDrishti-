@@ -91,8 +91,18 @@ const incidentReportSchema = new mongoose.Schema({
   escalationReason: { type: String, trim: true, default: '' },
   escalatedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
-  duplicateOf:   { type: mongoose.Schema.Types.ObjectId, ref: 'IncidentReport', default: null },
-  confirmations: { type: Number, default: 1 },
+  duplicateOf:        { type: mongoose.Schema.Types.ObjectId, ref: 'IncidentReport', default: null },
+  duplicateSimilarity: { type: Number, default: null },
+  confirmations:      { type: Number, default: 1 },
+
+  // A weaker semantic match than duplicateOf — surfaced to officers as a
+  // suggestion ("Possible duplicate — 91% similarity") rather than being
+  // auto-linked. Officers choose Merge (promotes this to duplicateOf) or
+  // Not Duplicate (dismisses it).
+  possibleDuplicateOf:        { type: mongoose.Schema.Types.ObjectId, ref: 'IncidentReport', default: null },
+  possibleDuplicateSimilarity: { type: Number, default: null },
+  duplicateReviewedAt:        { type: Date, default: null },
+  duplicateReviewedBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
   timeline: [timelineEntrySchema],
 }, { timestamps: true });

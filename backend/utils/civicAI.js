@@ -68,6 +68,23 @@ function bestSemanticMatch(newEmbedding, candidates, threshold = SEMANTIC_DUPLIC
   return bestScore >= threshold ? best : null;
 }
 
+// Same search as bestSemanticMatch, but returns the score too and doesn't
+// apply a threshold — used to surface "possible duplicate" suggestions to
+// officers even when the match is too weak to auto-link.
+function bestSemanticMatchWithScore(newEmbedding, candidates) {
+  if (!Array.isArray(newEmbedding) || !newEmbedding.length) return null;
+  let best = null, bestScore = 0;
+  for (const c of candidates) {
+    if (!Array.isArray(c.embedding) || !c.embedding.length) continue;
+    const score = cosineSimilarity(newEmbedding, c.embedding);
+    if (score > bestScore) { bestScore = score; best = c; }
+  }
+  return best ? { candidate: best, score: bestScore } : null;
+}
+
+// Below the auto-link bar but still worth flagging for a human to review.
+const POSSIBLE_DUPLICATE_THRESHOLD = 0.75;
+
 // A citizen describing the same physical problem often picks a different
 // category than the next person ("Other" vs "Flood / Waterlogging" for the
 // same waterlogged road) — so a cross-category match needs stronger evidence
@@ -167,9 +184,11 @@ module.exports = {
   embedText,
   cosineSimilarity,
   bestSemanticMatch,
+  bestSemanticMatchWithScore,
   classifyFreeText,
   translateEnglishToNepali,
   SEMANTIC_DUPLICATE_THRESHOLD,
   CROSS_CATEGORY_DUPLICATE_THRESHOLD,
+  POSSIBLE_DUPLICATE_THRESHOLD,
   VALID_CATEGORIES,
 };

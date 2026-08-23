@@ -80,6 +80,9 @@ export default function ReportDetailPage() {
   const [showEscalateBox, setShowEscalateBox] = useState(false);
   const [escalateReason, setEscalateReason] = useState('');
 
+  const [showDismissDupBox, setShowDismissDupBox] = useState(false);
+  const [dismissDupReason, setDismissDupReason] = useState('');
+
   const [authority, setAuthority] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [showIdDoc, setShowIdDoc] = useState(false);
@@ -164,7 +167,7 @@ export default function ReportDetailPage() {
   };
 
   const confirmComplete = async () => {
-    await act('complete', { note: completeNote, resolutionPhoto, resolutionPhotoName }, 'Marked complete — reporters notified');
+    await act('complete', { note: completeNote, resolutionPhoto, resolutionPhotoName }, 'Marked complete - reporters notified');
     setShowCompleteBox(false); setCompleteNote(''); setResolutionPhoto(''); setResolutionPhotoName('');
   };
 
@@ -186,7 +189,7 @@ export default function ReportDetailPage() {
     try {
       const { report: updated } = await post(`/api/reports/${id}/confirm`, {});
       setReport(prev => ({ ...updated, duplicates: prev?.duplicates || [] }));
-      toast.success('Thanks for confirming — issue closed');
+      toast.success('Thanks for confirming - issue closed');
     } catch (err) { toast.error(err.message); }
     setConfirmBusy(false);
   };
@@ -207,6 +210,15 @@ export default function ReportDetailPage() {
   const doEscalate = async () => {
     await act('escalate', { reason: escalateReason.trim() }, 'Report escalated');
     setShowEscalateBox(false); setEscalateReason('');
+  };
+
+  const doMergeDuplicate = async () => {
+    await act('mark-duplicate', {}, 'Merged as duplicate');
+  };
+
+  const doDismissDuplicate = async () => {
+    await act('dismiss-duplicate', { reason: dismissDupReason.trim() }, report.duplicateOf ? 'Marked as a separate issue' : 'Dismissed duplicate suggestion');
+    setShowDismissDupBox(false); setDismissDupReason('');
   };
 
   if (loading) return <div className="max-w-[900px] mx-auto space-y-4"><div className="shimmer h-8 w-40 rounded-lg" /><div className="shimmer h-64 rounded-2xl" /></div>;
@@ -297,7 +309,7 @@ export default function ReportDetailPage() {
         )}
 
         <div className="flex flex-wrap gap-2 pt-1">
-          <InfoPill icon={Clock} label={['completed', 'closed'].includes(report.status) ? `Resolved ${relativeTime(report.completedAt)}` : `AI estimate: ${report.estimatedDays} day(s) — due ${new Date(report.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`} />
+          <InfoPill icon={Clock} label={['completed', 'closed'].includes(report.status) ? `Resolved ${relativeTime(report.completedAt)}` : `AI estimate: ${report.estimatedDays} day(s) - due ${new Date(report.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`} />
           {report.confirmations > 1 && <InfoPill icon={Copy} label={`${report.confirmations} citizens reported this issue`} />}
           {report.assignedDepartment && <InfoPill icon={UserCheck} label={`Assigned to ${report.assignedDepartment}${report.assignedContact ? ` - ${report.assignedContact}` : ''}`} />}
         </div>
@@ -317,6 +329,10 @@ export default function ReportDetailPage() {
           </div>
         )}
       </div>
+
+      {isStaff && (report.possibleDuplicateOf || (report.duplicateOf && report.status === 'duplicate')) && (
+        <DuplicateReviewCard report={report} onMerge={doMergeDuplicate} onDismiss={doDismissDuplicate} busy={busy} showDismissBox={showDismissDupBox} setShowDismissBox={setShowDismissDupBox} dismissReason={dismissDupReason} setDismissReason={setDismissDupReason} />
+      )}
 
       {!['rejected', 'duplicate'].includes(report.status) && <LiveTrackingCard report={report} />}
 
@@ -422,7 +438,7 @@ export default function ReportDetailPage() {
         <div className="bg-white rounded-2xl border border-emerald-100 p-6 shadow-sm space-y-3">
           <div>
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-600" />Was this actually fixed?</h3>
-            <p className="mt-1 text-xs text-gray-500">An official marked this complete. Please confirm so we can close it out — or tell us it's still not fixed.</p>
+            <p className="mt-1 text-xs text-gray-500">An official marked this complete. Please confirm so we can close it out - or tell us it's still not fixed.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button disabled={confirmBusy} onClick={doConfirm} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">
@@ -470,7 +486,7 @@ export default function ReportDetailPage() {
           <div className="space-y-2">
             {report.duplicates.map(d => (
               <div key={d._id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
-                <span className="text-gray-600">{d.reportedBy?.name || 'Citizen'} — {relativeTime(d.createdAt)}</span>
+                <span className="text-gray-600">{d.reportedBy?.name || 'Citizen'} - {relativeTime(d.createdAt)}</span>
                 <span className="text-gray-400">{d.location.address}</span>
               </div>
             ))}
@@ -485,7 +501,7 @@ export default function ReportDetailPage() {
             <div key={i} className="flex gap-3">
               <div className="w-6 h-6 rounded-full bg-brand-50 border border-brand-100 flex items-center justify-center shrink-0 mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-brand-500" /></div>
               <div>
-                <p className="text-xs font-semibold text-gray-800 capitalize">{t.action.replace(/-/g, ' ')}{t.by ? ` — ${t.by.name}` : ''}</p>
+                <p className="text-xs font-semibold text-gray-800 capitalize">{t.action.replace(/-/g, ' ')}{t.by ? ` - ${t.by.name}` : ''}</p>
                 {t.note && <p className="text-xs text-gray-500 mt-0.5">{t.note}</p>}
                 <p className="text-[10px] text-gray-400 mt-0.5">{relativeTime(t.at)}</p>
               </div>
@@ -520,7 +536,7 @@ function IdDocModal({ userId, userName, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white">
-          <h3 className="text-sm font-semibold text-gray-900">Identity document — {userName}</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Identity document - {userName}</h3>
         </div>
         <div className="p-5">
           {loading ? (
@@ -528,12 +544,47 @@ function IdDocModal({ userId, userName, onClose }) {
           ) : error ? (
             <p className="text-sm text-gray-500">{error}</p>
           ) : isPdf ? (
-            <a href={doc.citizenshipDoc} target="_blank" rel="noreferrer" className="text-sm text-brand-600 font-medium underline">Open PDF — {doc.citizenshipDocName}</a>
+            <a href={doc.citizenshipDoc} target="_blank" rel="noreferrer" className="text-sm text-brand-600 font-medium underline">Open PDF - {doc.citizenshipDocName}</a>
           ) : (
             <img src={doc.citizenshipDoc} alt="Citizenship document" className="w-full rounded-xl border border-gray-100" />
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function DuplicateReviewCard({ report, onMerge, onDismiss, busy, showDismissBox, setShowDismissBox, dismissReason, setDismissReason }) {
+  const isConfirmed = Boolean(report.duplicateOf);
+  const target = isConfirmed ? report.duplicateOf : report.possibleDuplicateOf;
+  const similarity = isConfirmed ? report.duplicateSimilarity : report.possibleDuplicateSimilarity;
+  if (!target) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-violet-100 p-6 shadow-sm space-y-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+            <Copy className="w-4 h-4 text-violet-600" />
+            {isConfirmed ? 'Merged as duplicate' : 'Possible duplicate'}
+            {similarity != null && <span className="text-xs font-medium text-violet-600">- {similarity}% similarity</span>}
+          </h3>
+          <p className="mt-1 text-xs text-gray-500">
+            {isConfirmed ? 'This report is currently linked to: ' : 'AI detected a similar existing report: '}
+            <span className="font-medium text-gray-700">{target.title}</span>
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!isConfirmed && <ActionButton icon={Copy} label="Merge" tone="success" onClick={onMerge} busy={busy} />}
+          {!showDismissBox && <ActionButton icon={XCircle} label={isConfirmed ? 'Keep Separate' : 'Not Duplicate'} onClick={() => setShowDismissBox(true)} busy={busy} />}
+        </div>
+      </div>
+      {showDismissBox && (
+        <div className="flex gap-2">
+          <input value={dismissReason} onChange={e => setDismissReason(e.target.value)} placeholder="Why is this a separate issue? (optional)" className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-gray-400" />
+          <button disabled={busy} onClick={onDismiss} className="h-9 px-3 rounded-lg bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 disabled:opacity-60">Confirm</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -605,6 +656,7 @@ function CommunityCard({ report, commentText, setCommentText, busy, onSupport, o
     </div>
   );
 }
+
 function MapCard({ location }) {
   const hasCoords = Number.isFinite(location?.lat) && Number.isFinite(location?.lng);
   const lat = location?.lat;
@@ -631,8 +683,6 @@ function MapCard({ location }) {
     </div>
   );
 }
-          
-            
 
 function ReviewsCard({ authority, authorityName, reportId, reviews, onChanged, canRate, currentUserId }) {
   const myReview = currentUserId ? reviews.find(r => r.user?._id === currentUserId) : null;
