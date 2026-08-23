@@ -40,6 +40,10 @@ function publicBudgetItem(i) {
     confidence: i.confidence, flagged: i.flagged, flagReason: i.flagReason, flaggedAt: i.flaggedAt,
     isDemo: Boolean(i.isDemo), demoLabel: i.demoLabel || (i.isDemo ? 'Demo Data' : ''),
     evidenceDocuments: i.evidenceDocuments || [], documentId: i.document?._id, documentTitle: i.document?.title,
+    responsibleAuthority: i.responsibleAuthority || i.department || '',
+    timelineStart: i.timelineStart || null, timelineEnd: i.timelineEnd || null,
+    progressPhotos: i.progressPhotos || [],
+    statusHistory: i.statusHistory || [],
   };
 }
 function csvEscape(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
@@ -51,7 +55,15 @@ function csvEscape(value) { return `"${String(value ?? '').replace(/"/g, '""')}"
 // correctly-approved ward budget. Ward numbers already got this treatment
 // via wardVariants(); province/district/municipality now get it too.
 function escapeRegExp(value) { return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-function exactCI(value) { return { $regex: `^${escapeRegExp(String(value).trim())}$`, $options: 'i' }; }
+// Collapses whitespace on both sides of the comparison: the account's typed
+// value gets trimmed, and the pattern matches one-or-more spaces wherever a
+// space appears, so it doesn't matter whether the stored project data (or
+// what was typed) has a stray double space somewhere - both sides compare
+// as if they were single-spaced.
+function exactCI(value) {
+  const pattern = String(value).trim().split(/\s+/).map(escapeRegExp).join('\\s+');
+  return { $regex: `^${pattern}$`, $options: 'i' };
+}
 // Province is also free-typed on the citizen's own Settings page, where
 // people naturally type the short form ("Koshi") while budget records store
 // the official full name ("Koshi Province"). Match either form: the query
@@ -395,7 +407,7 @@ router.get('/changes', protect, async (req, res) => {
 
 router.post('/changes', protect, requireRole('municipality_head', 'ward_rep'), async (req, res) => {
   try {
-    let { title, department, sector, amount, originalApprovedBudget, revisedBudget, releasedAmount, contractedAmount, paidAmount, expenditureType, programType, fiscalYear, district, municipality, ward, reason } = req.body;
+    let { title, department, sector, amount, originalApprovedBudget, revisedBudget, releasedAmount, contractedAmount, paidAmount, expenditureType, programType, fiscalYear, district, municipality, ward, reason, status, timelineStart, timelineEnd, responsibleAuthority } = req.body;
     if (req.user.role === 'ward_rep') { const a = req.user.wardRepresentativeApplication || {}; district = a.district || district; municipality = a.municipality || municipality; ward = a.ward || ward; }
     if (!title || !department || !sector || !fiscalYear) return res.status(422).json({ error: 'Title, department, sector, and fiscal year are required' });
     const amountNum = numericValue(amount, NaN);
@@ -411,7 +423,7 @@ router.post('/changes', protect, requireRole('municipality_head', 'ward_rep'), a
     const province = req.body.province || deriveProvince(district);
     const wardUnitId = await resolveWardUnitId({ province, district, municipality, ward, createdBy: req.user._id });
     const doc = await Document.create({ user: req.user._id, title: `Proposed record - ${title}`, fileName: 'manual-entry', docType: 'budget', fiscalYear, district: district || '', municipality: municipality || '', totalBudget: amountNum, summary: 'Manual budget record proposed by official.' });
-    const change = await ChangeRequest.create({ user: req.user._id, budgetItem: null, type: 'create', requestedBy: req.user._id, reason: reason || '', proposed: { title, department, sector, expenditureType: expenditureType || 'Capital Expenditure', programType: programType || 'Infrastructure', ...proposedMoney, fiscalYear, province, district: district || '', municipality: municipality || '', ward: ward || '', wardUnit: wardUnitId, document: doc._id } });
+    const change = await ChangeRequest.create({ user: req.user._id, budgetItem: null, type: 'create', requestedBy: req.user._id, reason: reason || '', proposed: { title, department, sector, expenditureType: expenditureType || 'Capital Expenditure', programType: programType || 'Infrastructure', ...proposedMoney, fiscalYear, province, district: district || '', municipality: municipality || '', ward: ward || '', wardUnit: wardUnitId, document: doc._id, status: status || 'proposed', responsibleAuthority: responsibleAuthority || department, timelineStart: timelineStart || null, timelineEnd: timelineEnd || null } });
     await Activity.create({ user: req.user._id, type: 'change-request', message: `Proposed a new budget record: "${title}"` });
     res.status(201).json({ change });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -422,7 +434,7 @@ router.post('/:id/changes', protect, requireRole('municipality_head', 'ward_rep'
     const budgetFilter = budgetManagementFilter(req.user, req.params.id);
     const budgetItem = await BudgetItem.findOne(budgetFilter);
     if (!budgetItem) return res.status(404).json({ error: 'Budget item not found' });
-    const allowed = ['title', 'department', 'sector', 'amount', 'fiscalYear', 'province', 'district', 'municipality', 'ward', 'expenditureType', 'programType', 'originalApprovedBudget', 'revisedBudget', 'releasedAmount', 'contractedAmount', 'paidAmount', 'status', 'completionOverride', 'responsibleAuthority'];
+    const allowed = ['title', 'department', 'sector', 'amount', 'fiscalYear', 'province', 'district', 'municipality', 'ward', 'expenditureType', 'programType', 'originalApprovedBudget', 'revisedBudget', 'releasedAmount', 'contractedAmount', 'paidAmount', 'status', 'completionOverride', 'responsibleAuthority', 'timelineStart', 'timelineEnd'];
     const proposed = {};
     allowed.forEach(key => { if (req.body[key] !== undefined && req.body[key] !== '') proposed[key] = req.body[key]; });
     if (req.user.role === 'ward_rep') { const a = req.user.wardRepresentativeApplication || {}; proposed.district = a.district || proposed.district; proposed.municipality = a.municipality || proposed.municipality; proposed.ward = a.ward || proposed.ward; }
@@ -474,7 +486,7 @@ router.patch('/changes/:id', protect, requireRole('admin'), async (req, res) => 
           paidAmount: numericValue(p.paidAmount, 0),
           spent: numericValue(p.paidAmount, 0),
         };
-        const created = await BudgetItem.create({ user: change.user, document: p.document, title: p.title, department: p.department, sector: p.sector, expenditureType: p.expenditureType, programType: p.programType, ...approvedFlow, fiscalYear: p.fiscalYear, province: p.province || deriveProvince(p.district), district: p.district || '', municipality: p.municipality || '', ward: p.ward || '', wardUnit: p.wardUnit || null, page: 1, confidence: 1, isDemo: false, revisionHistory: [{ previous: {}, next: p, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: p.document || null, reviewedAt: new Date() }] });
+        const created = await BudgetItem.create({ user: change.user, document: p.document, title: p.title, department: p.department, sector: p.sector, expenditureType: p.expenditureType, programType: p.programType, ...approvedFlow, fiscalYear: p.fiscalYear, province: p.province || deriveProvince(p.district), district: p.district || '', municipality: p.municipality || '', ward: p.ward || '', wardUnit: p.wardUnit || null, page: 1, confidence: 1, isDemo: false, responsibleAuthority: p.responsibleAuthority || p.department || '', timelineStart: p.timelineStart || null, timelineEnd: p.timelineEnd || null, status: p.status || 'proposed', statusHistory: [{ stage: p.status || 'proposed', changedBy: req.user._id, note: 'Project record created' }], revisionHistory: [{ previous: {}, next: p, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: p.document || null, reviewedAt: new Date() }] });
         change.budgetItem = created._id;
         await change.save();
         await Activity.create({ user: change.user, type: 'approval', message: `Approved new budget record "${p.title}"` });
@@ -486,7 +498,11 @@ router.patch('/changes/:id', protect, requireRole('admin'), async (req, res) => 
         });
         if (approvedUpdate.paidAmount !== undefined) approvedUpdate.spent = approvedUpdate.paidAmount;
         if (!approvedUpdate.province && approvedUpdate.district) approvedUpdate.province = deriveProvince(approvedUpdate.district);
-        await BudgetItem.findByIdAndUpdate(change.budgetItem._id, { $set: approvedUpdate, $push: { revisionHistory: { previous: change.previous || {}, next: approvedUpdate, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: change.proposed?.document || null, reviewedAt: new Date() } } }, { new: true });
+        const pushOps = { revisionHistory: { previous: change.previous || {}, next: approvedUpdate, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: change.proposed?.document || null, reviewedAt: new Date() } };
+        if (approvedUpdate.status && approvedUpdate.status !== change.budgetItem.status) {
+          pushOps.statusHistory = { stage: approvedUpdate.status, changedBy: req.user._id, note: change.reason || '' };
+        }
+        await BudgetItem.findByIdAndUpdate(change.budgetItem._id, { $set: approvedUpdate, $push: pushOps }, { new: true, runValidators: true });
         await Activity.create({ user: change.user, type: 'approval', message: `Approved budget update for "${change.budgetItem.title}"` });
         logAudit(req, { action: 'EDIT_BUDGET', targetType: 'BudgetItem', targetId: change.budgetItem._id, targetLabel: change.budgetItem.title, previousValue: change.previous || {}, newValue: change.proposed || {}, province: change.budgetItem.province || '', municipality: change.budgetItem.municipality || '', ward: change.budgetItem.ward || '' });
       }

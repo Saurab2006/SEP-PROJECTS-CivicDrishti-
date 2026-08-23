@@ -1,11 +1,10 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
   "/login/page": "app/login/page.js",
   "/(protected)/budget/page": "app/(protected)/budget/page.js",
   "/(protected)/dashboard/page": "app/(protected)/dashboard/page.js",
-  "/(protected)/wards/[id]/page": "app/(protected)/wards/[id]/page.js",
-  "/(protected)/wards/page": "app/(protected)/wards/page.js",
-  "/(protected)/admin/municipality-heads/page": "app/(protected)/admin/municipality-heads/page.js",
+  "/(protected)/issues/page": "app/(protected)/issues/page.js",
   "/(protected)/admin/audit-logs/page": "app/(protected)/admin/audit-logs/page.js",
-  "/(protected)/admin/wards/page": "app/(protected)/admin/wards/page.js"
+  "/(protected)/admin/users/page": "app/(protected)/admin/users/page.js",
+  "/(protected)/admin/wards/page": "app/(protected)/admin/wards/page.js",
+  "/(protected)/authorities/page": "app/(protected)/authorities/page.js"
 }

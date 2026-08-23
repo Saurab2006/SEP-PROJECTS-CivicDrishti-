@@ -1,5 +1,17 @@
 const mongoose = require('mongoose');
 
+const statusHistorySchema = new mongoose.Schema({
+  stage:      { type: String, required: true },
+  changedAt:  { type: Date, default: Date.now },
+  changedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  note:       { type: String, trim: true, default: '' },
+}, { _id: true });
+
+const PROJECT_LIFECYCLE_STAGES = [
+  'proposed', 'budget-approved', 'procurement', 'contract-awarded',
+  'work-started', 'in-progress', 'completed', 'inspected', 'closed',
+];
+
 const budgetItemSchema = new mongoose.Schema({
   user:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   wardUnit:   { type: mongoose.Schema.Types.ObjectId, ref: 'WardUnit', default: null },
@@ -18,7 +30,8 @@ const budgetItemSchema = new mongoose.Schema({
   disbursedAmount: { type: Number, default: 0 },
   contractedAmount: { type: Number, default: 0 },
   paidAmount: { type: Number, default: 0 },
-  status:     { type: String, enum: ['planned', 'ongoing', 'completed', 'delayed'], default: 'planned' },
+  status:     { type: String, enum: [...PROJECT_LIFECYCLE_STAGES, 'planned', 'ongoing', 'delayed'], default: 'planned' },
+  statusHistory: [statusHistorySchema],
   completionOverride: { type: Number, min: 0, max: 100, default: null },
   fiscalYear: { type: String, required: true },
   province:   { type: String },
@@ -57,6 +70,7 @@ budgetItemSchema.index({ wardUnit: 1, fiscalYear: 1 });
 budgetItemSchema.index({ title: 'text', department: 'text', district: 'text', municipality: 'text', ward: 'text' });
 
 module.exports = mongoose.model('BudgetItem', budgetItemSchema);
+module.exports.PROJECT_LIFECYCLE_STAGES = PROJECT_LIFECYCLE_STAGES;
 
 
 

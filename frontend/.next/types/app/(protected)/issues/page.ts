@@ -1,4 +1,4 @@
-// File: E:\SEP-PROJECTS-CivicDrishti--main\frontend\src\app\(protected)\issues\page.jsx
+// File: C:\Users\Panas Koirala\OneDrive\Desktop\Civicदृष्टि\SEP-PROJECTS-CivicDrishti-\frontend\src\app\(protected)\issues\page.jsx
 import * as entry from '../../../../../src/app/(protected)/issues/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

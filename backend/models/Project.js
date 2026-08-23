@@ -1,4 +1,12 @@
 ﻿const mongoose = require('mongoose');
+const { PROJECT_LIFECYCLE_STAGES } = require('./BudgetItem');
+
+const statusHistorySchema = new mongoose.Schema({
+  stage:      { type: String, required: true },
+  changedAt:  { type: Date, default: Date.now },
+  changedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  note:       { type: String, trim: true, default: '' },
+}, { _id: true });
 
 const projectSchema = new mongoose.Schema({
   user:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -6,7 +14,8 @@ const projectSchema = new mongoose.Schema({
   document:   { type: mongoose.Schema.Types.ObjectId, ref: 'Document', required: true },
   name:       { type: String, required: true },
   sector:     { type: String, required: true },
-  status:     { type: String, enum: ['planned', 'ongoing', 'completed', 'delayed'], default: 'planned' },
+  status:     { type: String, enum: [...PROJECT_LIFECYCLE_STAGES, 'planned', 'ongoing', 'delayed'], default: 'planned' },
+  statusHistory: [statusHistorySchema],
    budget:        { type: Number, default: 0 },
   revisedBudget: { type: Number, default: null },
   spent:         { type: Number, default: 0 },

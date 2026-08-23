@@ -12,10 +12,20 @@ const emptyProposal = {
   title: '', department: '', sector: '', fiscalYear: '', district: '', municipality: '', ward: '',
   amount: '', originalApprovedBudget: '', revisedBudget: '', releasedAmount: '', contractedAmount: '', paidAmount: '',
   expenditureType: 'Capital Expenditure', programType: 'Infrastructure', reason: '',
+  status: '', timelineStart: '', timelineEnd: '',
 };
 const LEVELS = ['province', 'district', 'municipality', 'ward'];
 const LEVEL_LABEL = { province: 'Province', district: 'District', municipality: 'Municipality', ward: 'Ward' };
-const STAGE_COLORS = { planned: 'bg-slate-100 text-slate-700', ongoing: 'bg-blue-50 text-blue-700', completed: 'bg-emerald-50 text-emerald-700', delayed: 'bg-red-50 text-red-700' };
+const STAGE_COLORS = {
+  proposed: 'bg-slate-100 text-slate-700', 'budget-approved': 'bg-indigo-50 text-indigo-700',
+  procurement: 'bg-amber-50 text-amber-700', 'contract-awarded': 'bg-violet-50 text-violet-700',
+  'work-started': 'bg-cyan-50 text-cyan-700', 'in-progress': 'bg-blue-50 text-blue-700',
+  completed: 'bg-emerald-50 text-emerald-700', inspected: 'bg-teal-50 text-teal-700',
+  closed: 'bg-gray-100 text-gray-500',
+  planned: 'bg-slate-100 text-slate-700', ongoing: 'bg-blue-50 text-blue-700', delayed: 'bg-red-50 text-red-700',
+};
+const LIFECYCLE_STAGES = ['proposed', 'budget-approved', 'procurement', 'contract-awarded', 'work-started', 'in-progress', 'completed', 'inspected', 'closed'];
+function stageLabel(stage) { return String(stage || 'planned').split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' '); }
 const EXPENDITURE_TYPES = ['Recurrent Expenditure', 'Capital Expenditure', 'Other'];
 const PROGRAM_TYPES = ['Infrastructure', 'Maintenance', 'Service Program', 'Social Program', 'Grant Program', 'Other'];
 
@@ -28,8 +38,11 @@ function sameWard(a, b) { return wardValue(a) === wardValue(b); }
 // this page's own drill-down filter used to be a strict === match, so a
 // stray space or capitalization difference in how a project's location was
 // entered could make an approved record vanish from the drilled-down list
-// even though it was correctly counted in ward-level totals.
-function sameName(a, b) { return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase(); }
+// even though it was correctly counted in ward-level totals. Also collapses
+// doubled internal spaces (e.g. "Biratnagar  Metropolitan City"), which
+// render identically to a single space on screen but would otherwise fail
+// an exact-string comparison.
+function sameName(a, b) { return String(a || '').trim().toLowerCase().replace(/\s+/g, ' ') === String(b || '').trim().toLowerCase().replace(/\s+/g, ' '); }
 // Province specifically also needs to tolerate the short form ("Koshi")
 // against the full stored form ("Koshi Province") — citizens type the short
 // form into a free-text field on Settings, but budget records always carry
@@ -168,6 +181,7 @@ export default function BudgetPage() {
       originalApprovedBudget: flow.originalApprovedBudget || '', revisedBudget: flow.revisedBudget || '', releasedAmount: flow.releasedAmount || '',
       contractedAmount: flow.contractedAmount || '', paidAmount: flow.paidAmount || '', expenditureType: item.expenditureType || 'Capital Expenditure',
       programType: item.programType || 'Infrastructure', reason: '',
+      status: '', timelineStart: item.timelineStart ? item.timelineStart.slice(0, 10) : '', timelineEnd: item.timelineEnd ? item.timelineEnd.slice(0, 10) : '',
     });
   };
 
@@ -349,7 +363,7 @@ export default function BudgetPage() {
               <div className="relative min-w-0 flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8272]" /><input value={recordQuery} onChange={e => setRecordQuery(e.target.value)} placeholder="Search projects, department, or place" className="h-10 w-full rounded-lg border border-[#ded6c8] pl-9 pr-3 text-sm outline-none focus:border-[#0f3d3e]" /></div>
               <button type="button" onClick={() => setFiltersOpen(v => !v)} className={cn('flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium sm:w-auto', filtersOpen || recordStatus !== 'all' ? 'border-[#0f3d3e] bg-[#eef6f4] text-[#0f3d3e]' : 'border-[#ded6c8] text-[#65706c]')}><SlidersHorizontal className="h-4 w-4" />Filters{recordStatus !== 'all' ? ' · 1' : ''}</button>
             </div>
-            {filtersOpen && <div className="grid gap-2 rounded-lg bg-[#f8fbfd] p-3 sm:grid-cols-[minmax(0,220px)_auto] sm:items-end"><label className="block"><span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#8c8272]">Project status</span><select value={recordStatus} onChange={e => setRecordStatus(e.target.value)} className="h-10 w-full rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="all">All statuses</option>{Object.keys(STAGE_COLORS).map(status => <option key={status} value={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}</select></label>{(recordStatus !== 'all' || recordQuery) && <button type="button" onClick={() => { setRecordStatus('all'); setRecordQuery(''); }} className="h-10 rounded-lg px-3 text-sm font-medium text-[#dc143c] hover:bg-[#fff4f3]">Clear filters</button>}</div>}
+            {filtersOpen && <div className="grid gap-2 rounded-lg bg-[#f8fbfd] p-3 sm:grid-cols-[minmax(0,220px)_auto] sm:items-end"><label className="block"><span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-[#8c8272]">Project status</span><select value={recordStatus} onChange={e => setRecordStatus(e.target.value)} className="h-10 w-full rounded-lg border border-[#ded6c8] px-3 text-sm outline-none focus:border-[#0f3d3e]"><option value="all">All statuses</option>{LIFECYCLE_STAGES.map(status => <option key={status} value={status}>{stageLabel(status)}</option>)}</select></label>{(recordStatus !== 'all' || recordQuery) && <button type="button" onClick={() => { setRecordStatus('all'); setRecordQuery(''); }} className="h-10 rounded-lg px-3 text-sm font-medium text-[#dc143c] hover:bg-[#fff4f3]">Clear filters</button>}</div>}
           </div>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
@@ -454,7 +468,7 @@ function Tab({ active, onClick, icon: Icon, children }) {
   return <button onClick={onClick} className={cn('flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium', active ? 'bg-[#0f3d3e] text-white' : 'border border-[#ded6c8] text-[#65706c] hover:bg-[#f7f2ea]')}><Icon className="h-4 w-4" />{children}</button>;
 }
 function StageBadge({ stage }) {
-  return <span className={cn('rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wide', STAGE_COLORS[stage] || STAGE_COLORS.planned)}>{stage}</span>;
+  return <span className={cn('rounded-md px-2 py-1 text-[10px] font-medium uppercase tracking-wide', STAGE_COLORS[stage] || STAGE_COLORS.planned)}>{stageLabel(stage)}</span>;
 }
 function Progress({ node }) {
   return <div><div className="mb-1 flex justify-between text-xs font-medium text-[#65706c]"><span>{node.completion}% complete</span><span>{formatNPR(node.spent)} spent</span></div><div className="h-2 overflow-hidden rounded-full bg-[#eee6d8]"><div className="h-full rounded-full bg-[#0f3d3e]" style={{ width: `${Math.min(100, node.completion)}%` }} /></div></div>;
@@ -474,9 +488,61 @@ function BudgetMobileCard({ item, canPropose, canEdit, onEdit, onDetails, onFeed
   return <div className="p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-medium text-[#102a2b]">{item.title}</h3>{(item.isDemo || item.demoLabel) && <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">{item.demoLabel || 'Demo Data'}</span>}</div><p className="mt-1 text-xs text-[#65706c]">{item.district || '—'} · {item.municipality || '—'}{item.ward ? ` · Ward ${item.ward}` : ''}</p></div><StageBadge stage={item.status || 'planned'} /></div><div className="mt-3 rounded-lg bg-[#f8fbfd] p-3"><div className="flex items-end justify-between gap-2"><div><p className="text-[10px] uppercase tracking-wide text-[#8c8272]">Allocated</p><p className="mt-0.5 text-sm font-medium tabular-nums text-[#102a2b]">{formatNPR(flow.revisedBudget)}</p></div><p className="text-xs font-medium text-[#0f6e56]">{flow.paidPercent}% spent</p></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#e7edf3]"><div className="h-full rounded-full bg-[#0f3d3e]" style={{ width: `${flow.paidPercent}%` }} /></div></div><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={() => onDetails(item)} className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-[#ded6c8] text-xs font-medium text-[#0f3d3e]"><Eye className="h-3.5 w-3.5" />View project</button><button onClick={() => onFeedback(item)} className="h-10 rounded-lg border border-[#ded6c8] text-xs font-medium text-[#0f3d3e]">Feedback</button>{canPropose && <button disabled={!canEdit} onClick={() => onEdit(item)} className="col-span-2 h-10 rounded-lg border border-[#ded6c8] text-xs font-medium text-[#0f3d3e] disabled:cursor-not-allowed disabled:opacity-40">Propose edit</button>}</div>{canPropose && !canEdit && <p className="mt-2 text-[11px] text-[#8c8272]">Management locked outside your assigned jurisdiction.</p>}</div>;
 }
 
+function stageIndex(status) {
+  const i = LIFECYCLE_STAGES.indexOf(status);
+  if (i >= 0) return i;
+  if (status === 'planned') return 0;
+  if (status === 'ongoing' || status === 'delayed') return LIFECYCLE_STAGES.indexOf('in-progress');
+  return 0;
+}
+function LifecycleSection({ item }) {
+  const current = stageIndex(item.status);
+  const history = item.statusHistory || [];
+  const hasTimeline = item.timelineStart || item.timelineEnd;
+  const docs = item.evidenceDocuments || [];
+  return <div>
+    <h3 className="text-sm font-medium text-[#102a2b]">Project lifecycle</h3>
+    <p className="mt-1 text-xs text-[#65706c]">Tracks the project from proposal through closure.</p>
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {LIFECYCLE_STAGES.map((stage, i) => (
+        <span key={stage} className={cn('rounded-md px-2 py-1 text-[10px] font-medium', i < current ? 'bg-[#eef6f4] text-[#0f3d3e]' : i === current ? 'bg-[#0f3d3e] text-white' : 'bg-[#f3f0e9] text-[#a89f8f]')}>
+          {stageLabel(stage)}
+        </span>
+      ))}
+    </div>
+    {(item.responsibleAuthority || hasTimeline) && (
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {item.responsibleAuthority && <FlowCell label="Responsible dept" value={item.responsibleAuthority} isText />}
+        {item.timelineStart && <FlowCell label="Started" value={new Date(item.timelineStart).toLocaleDateString()} isText />}
+        {item.timelineEnd && <FlowCell label="Target completion" value={new Date(item.timelineEnd).toLocaleDateString()} isText />}
+      </div>
+    )}
+    {docs.length > 0 && (
+      <div className="mt-3">
+        <p className="text-[10px] uppercase tracking-wide text-[#8c8272]">Documents</p>
+        <ul className="mt-1.5 space-y-1">
+          {docs.map((d, i) => <li key={i}><a href={d.url} target="_blank" rel="noreferrer" className="text-xs font-medium text-[#0f3d3e] underline underline-offset-2 hover:text-[#0f6e56]">{d.title || `Document ${i + 1}`}</a></li>)}
+        </ul>
+      </div>
+    )}
+    {history.length > 0 && (
+      <div className="mt-3">
+        <p className="text-[10px] uppercase tracking-wide text-[#8c8272]">Stage history</p>
+        <ul className="mt-1.5 space-y-2">
+          {[...history].reverse().map((h, i) => (
+            <li key={h._id || i} className="flex items-start justify-between gap-3 text-xs">
+              <span className="font-medium text-[#102a2b]">{stageLabel(h.stage)}</span>
+              <span className="shrink-0 text-[#8c8272]">{h.changedAt ? new Date(h.changedAt).toLocaleDateString() : ''}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+  </div>;
+}
 function ProjectDetailsModal({ item, onClose, onFeedback }) {
   const flow = flowFor(item);
-  return <div className="fixed inset-0 z-50 flex items-end bg-black/35 sm:items-center sm:justify-center sm:p-4" onClick={onClose}><div role="dialog" aria-modal="true" aria-label="Project details" onClick={e => e.stopPropagation()} className="max-h-[92vh] w-full overflow-y-auto rounded-t-xl bg-white shadow-xl sm:max-w-2xl sm:rounded-xl"><div className="sticky top-0 flex items-start justify-between gap-3 border-b border-[#eee6d8] bg-white px-4 py-4 sm:px-6"><div className="min-w-0"><p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#dc143c]">Public project details</p><h2 className="mt-1 text-lg font-medium text-[#102a2b]">{item.title}</h2><p className="mt-1 text-xs text-[#65706c]">{[item.province, item.district, item.municipality, item.ward && `Ward ${item.ward}`].filter(Boolean).join(' → ')}</p></div><button type="button" onClick={onClose} className="shrink-0 rounded-lg p-2 text-[#8c8272] hover:bg-[#fffaf2]" aria-label="Close project details"><X className="h-4 w-4" /></button></div><div className="space-y-5 p-4 sm:p-6"><div className="flex flex-wrap items-center gap-2"><StageBadge stage={item.status || 'planned'} /><span className="rounded-md bg-[#eef6f4] px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-[#0f3d3e]">{item.programType || item.sector || 'Public program'}</span><span className="text-xs text-[#65706c]">{item.department || 'Department not specified'} · {item.fiscalYear || 'Current fiscal year'}</span></div><div className="rounded-lg border border-[#eee6d8] bg-[#f8fbfd] p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs text-[#65706c]">Delivery progress</p><p className="mt-1 text-xl font-medium tabular-nums text-[#102a2b]">{flow.paidPercent}% spent</p></div><p className="text-right text-xs text-[#65706c]">{formatNPR(flow.paidAmount)} paid<br />of {formatNPR(flow.revisedBudget)}</p></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e7edf3]"><div className="h-full rounded-full bg-[#0f3d3e]" style={{ width: `${flow.paidPercent}%` }} /></div></div><div><h3 className="text-sm font-medium text-[#102a2b]">Financial record</h3><p className="mt-1 text-xs text-[#65706c]">Detailed amounts are shown here to keep the public register easy to scan.</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"><FlowCell label="Original approval" value={flow.originalApprovedBudget} /><FlowCell label="Revised budget" value={flow.revisedBudget} /><FlowCell label="Released" value={flow.releasedAmount} /><FlowCell label="Contracted" value={flow.contractedAmount} /><FlowCell label="Paid" value={flow.paidAmount} accent /><FlowCell label="Remaining" value={flow.remainingAmount} /></div></div><div className="flex flex-col-reverse gap-2 border-t border-[#eee6d8] pt-4 sm:flex-row sm:justify-end"><button type="button" onClick={onClose} className="h-10 rounded-lg border border-[#ded6c8] px-4 text-sm font-medium text-[#65706c]">Close</button><button type="button" onClick={onFeedback} className="h-10 rounded-lg bg-[#0f3d3e] px-4 text-sm font-medium text-white hover:bg-[#102a2b]">Give community feedback</button></div></div></div></div>;
+  return <div className="fixed inset-0 z-50 flex items-end bg-black/35 sm:items-center sm:justify-center sm:p-4" onClick={onClose}><div role="dialog" aria-modal="true" aria-label="Project details" onClick={e => e.stopPropagation()} className="max-h-[92vh] w-full overflow-y-auto rounded-t-xl bg-white shadow-xl sm:max-w-2xl sm:rounded-xl"><div className="sticky top-0 flex items-start justify-between gap-3 border-b border-[#eee6d8] bg-white px-4 py-4 sm:px-6"><div className="min-w-0"><p className="text-[11px] font-medium uppercase tracking-[0.14em] text-[#dc143c]">Public project details</p><h2 className="mt-1 text-lg font-medium text-[#102a2b]">{item.title}</h2><p className="mt-1 text-xs text-[#65706c]">{[item.province, item.district, item.municipality, item.ward && `Ward ${item.ward}`].filter(Boolean).join(' → ')}</p></div><button type="button" onClick={onClose} className="shrink-0 rounded-lg p-2 text-[#8c8272] hover:bg-[#fffaf2]" aria-label="Close project details"><X className="h-4 w-4" /></button></div><div className="space-y-5 p-4 sm:p-6"><div className="flex flex-wrap items-center gap-2"><StageBadge stage={item.status || 'planned'} /><span className="rounded-md bg-[#eef6f4] px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-[#0f3d3e]">{item.programType || item.sector || 'Public program'}</span><span className="text-xs text-[#65706c]">{item.department || 'Department not specified'} · {item.fiscalYear || 'Current fiscal year'}</span></div><div className="rounded-lg border border-[#eee6d8] bg-[#f8fbfd] p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs text-[#65706c]">Delivery progress</p><p className="mt-1 text-xl font-medium tabular-nums text-[#102a2b]">{flow.paidPercent}% spent</p></div><p className="text-right text-xs text-[#65706c]">{formatNPR(flow.paidAmount)} paid<br />of {formatNPR(flow.revisedBudget)}</p></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e7edf3]"><div className="h-full rounded-full bg-[#0f3d3e]" style={{ width: `${flow.paidPercent}%` }} /></div></div><div><h3 className="text-sm font-medium text-[#102a2b]">Financial record</h3><p className="mt-1 text-xs text-[#65706c]">Detailed amounts are shown here to keep the public register easy to scan.</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3"><FlowCell label="Original approval" value={flow.originalApprovedBudget} /><FlowCell label="Revised budget" value={flow.revisedBudget} /><FlowCell label="Released" value={flow.releasedAmount} /><FlowCell label="Contracted" value={flow.contractedAmount} /><FlowCell label="Paid" value={flow.paidAmount} accent /><FlowCell label="Remaining" value={flow.remainingAmount} /></div></div><LifecycleSection item={item} /><div className="flex flex-col-reverse gap-2 border-t border-[#eee6d8] pt-4 sm:flex-row sm:justify-end"><button type="button" onClick={onClose} className="h-10 rounded-lg border border-[#ded6c8] px-4 text-sm font-medium text-[#65706c]">Close</button><button type="button" onClick={onFeedback} className="h-10 rounded-lg bg-[#0f3d3e] px-4 text-sm font-medium text-white hover:bg-[#102a2b]">Give community feedback</button></div></div></div></div>;
 }
 
 const VERDICTS = [
@@ -710,8 +776,8 @@ function FeedbackHistoryModal({ item, onClose }) {
   );
 }
 
-function FlowCell({ label, value, accent }) {
-  return <div className="rounded-md border border-[#e2e8ee] bg-[#fbfcfd] px-2 py-1.5"><p className="text-[10px] uppercase tracking-wide text-[#8c8272]">{label}</p><p className={cn('mt-0.5 font-medium tabular-nums', accent ? 'text-[#dc143c]' : 'text-[#102a2b]')}>{formatNPR(value)}</p></div>;
+function FlowCell({ label, value, accent, isText }) {
+  return <div className="rounded-md border border-[#e2e8ee] bg-[#fbfcfd] px-2 py-1.5"><p className="text-[10px] uppercase tracking-wide text-[#8c8272]">{label}</p><p className={cn('mt-0.5 font-medium tabular-nums', accent ? 'text-[#dc143c]' : 'text-[#102a2b]')}>{isText ? value : formatNPR(value)}</p></div>;
 }
 function ProposalForm({ creating, selected, proposal, setProposal, submitProposal, saving, cancel }) {
   const enabled = creating || selected;
@@ -787,6 +853,27 @@ function ProposalForm({ creating, selected, proposal, setProposal, submitProposa
                 <input type="number" min="0" value={proposal[key]} onChange={e => update(key, e.target.value)} placeholder="Amount in NPR" className="h-11 w-full rounded-lg border border-[#dfe5ec] px-3 text-sm outline-none focus:border-[#ee4540]" />
               </label>
             ))}
+          </div>
+        </section>
+
+        <section>
+          <h3 className="mb-2 text-sm font-semibold text-[#17212b]">Project stage</h3>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-[#5f6b7a]">Lifecycle stage</span>
+              <select value={proposal.status || ''} onChange={e => update('status', e.target.value)} className="h-11 w-full rounded-lg border border-[#dfe5ec] px-3 text-sm outline-none focus:border-[#ee4540]">
+                <option value="">Keep current stage</option>
+                {LIFECYCLE_STAGES.map(v => <option key={v} value={v}>{stageLabel(v)}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-[#5f6b7a]">Work started</span>
+              <input type="date" value={proposal.timelineStart || ''} onChange={e => update('timelineStart', e.target.value)} className="h-11 w-full rounded-lg border border-[#dfe5ec] px-3 text-sm outline-none focus:border-[#ee4540]" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-[#5f6b7a]">Target completion</span>
+              <input type="date" value={proposal.timelineEnd || ''} onChange={e => update('timelineEnd', e.target.value)} className="h-11 w-full rounded-lg border border-[#dfe5ec] px-3 text-sm outline-none focus:border-[#ee4540]" />
+            </label>
           </div>
         </section>
 

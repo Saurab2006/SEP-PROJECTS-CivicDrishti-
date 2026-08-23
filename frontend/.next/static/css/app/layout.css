@@ -1168,9 +1168,6 @@ input:where([type='file']):focus {
 .w-full {
   width: 100%;
 }
-.w-11 {
-  width: 2.75rem;
-}
 .min-w-0 {
   min-width: 0px;
 }
@@ -1185,6 +1182,9 @@ input:where([type='file']):focus {
 }
 .min-w-9 {
   min-width: 2.25rem;
+}
+.min-w-\[100px\] {
+  min-width: 100px;
 }
 .min-w-\[140px\] {
   min-width: 140px;
@@ -1203,9 +1203,6 @@ input:where([type='file']):focus {
 }
 .min-w-\[980px\] {
   min-width: 980px;
-}
-.min-w-\[100px\] {
-  min-width: 100px;
 }
 .max-w-2xl {
   max-width: 42rem;
@@ -1410,18 +1407,18 @@ input:where([type='file']):focus {
   -moz-column-gap: 0.5rem;
        column-gap: 0.5rem;
 }
-.gap-y-0\.5 {
-  row-gap: 0.125rem;
-}
-.gap-y-8 {
-  row-gap: 2rem;
-}
 .gap-x-6 {
   -moz-column-gap: 1.5rem;
        column-gap: 1.5rem;
 }
+.gap-y-0\.5 {
+  row-gap: 0.125rem;
+}
 .gap-y-2 {
   row-gap: 0.5rem;
+}
+.gap-y-8 {
+  row-gap: 2rem;
 }
 .space-y-1 > :not([hidden]) ~ :not([hidden]) {
   --tw-space-y-reverse: 0;
@@ -1814,6 +1811,10 @@ input:where([type='file']):focus {
   --tw-bg-opacity: 1;
   background-color: rgb(242 245 248 / var(--tw-bg-opacity, 1));
 }
+.bg-\[\#f3f0e9\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(243 240 233 / var(--tw-bg-opacity, 1));
+}
 .bg-\[\#f5f1e8\] {
   --tw-bg-opacity: 1;
   background-color: rgb(245 241 232 / var(--tw-bg-opacity, 1));
@@ -1969,6 +1970,10 @@ input:where([type='file']):focus {
   --tw-bg-opacity: 1;
   background-color: rgb(17 24 39 / var(--tw-bg-opacity, 1));
 }
+.bg-indigo-50 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(238 242 255 / var(--tw-bg-opacity, 1));
+}
 .bg-orange-100 {
   --tw-bg-opacity: 1;
   background-color: rgb(255 237 213 / var(--tw-bg-opacity, 1));
@@ -2069,6 +2074,9 @@ input:where([type='file']):focus {
 .p-10 {
   padding: 2.5rem;
 }
+.p-12 {
+  padding: 3rem;
+}
 .p-16 {
   padding: 4rem;
 }
@@ -2095,9 +2103,6 @@ input:where([type='file']):focus {
 }
 .p-8 {
   padding: 2rem;
-}
-.p-12 {
-  padding: 3rem;
 }
 .px-1 {
   padding-left: 0.25rem;
@@ -2425,6 +2430,10 @@ input:where([type='file']):focus {
   --tw-text-opacity: 1;
   color: rgb(140 130 114 / var(--tw-text-opacity, 1));
 }
+.text-\[\#a89f8f\] {
+  --tw-text-opacity: 1;
+  color: rgb(168 159 143 / var(--tw-text-opacity, 1));
+}
 .text-\[\#b80f31\] {
   --tw-text-opacity: 1;
   color: rgb(184 15 49 / var(--tw-text-opacity, 1));
@@ -2459,6 +2468,9 @@ input:where([type='file']):focus {
 }
 .text-\[var\(--gov-bluegray\)\] {
   color: var(--gov-bluegray);
+}
+.text-\[var\(--gov-border\)\] {
+  color: var(--gov-border);
 }
 .text-\[var\(--gov-error\)\] {
   color: var(--gov-error);
@@ -2568,6 +2580,10 @@ input:where([type='file']):focus {
   --tw-text-opacity: 1;
   color: rgb(17 24 39 / var(--tw-text-opacity, 1));
 }
+.text-indigo-700 {
+  --tw-text-opacity: 1;
+  color: rgb(67 56 202 / var(--tw-text-opacity, 1));
+}
 .text-orange-700 {
   --tw-text-opacity: 1;
   color: rgb(194 65 12 / var(--tw-text-opacity, 1));
@@ -2626,11 +2642,11 @@ input:where([type='file']):focus {
 .text-white\/80 {
   color: rgb(255 255 255 / 0.8);
 }
-.text-\[var\(--gov-border\)\] {
-  color: var(--gov-border);
-}
 .underline {
   text-decoration-line: underline;
+}
+.underline-offset-2 {
+  text-underline-offset: 2px;
 }
 .antialiased {
   -webkit-font-smoothing: antialiased;
@@ -3153,6 +3169,10 @@ body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: anti
   --tw-text-opacity: 1;
   color: rgb(15 61 62 / var(--tw-text-opacity, 1));
 }
+.hover\:text-\[\#0f6e56\]:hover {
+  --tw-text-opacity: 1;
+  color: rgb(15 110 86 / var(--tw-text-opacity, 1));
+}
 .hover\:text-\[\#102a2b\]:hover {
   --tw-text-opacity: 1;
   color: rgb(16 42 43 / var(--tw-text-opacity, 1));
@@ -3172,6 +3192,9 @@ body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: anti
 .hover\:text-\[var\(--gov-primary\)\]:hover {
   color: var(--gov-primary);
 }
+.hover\:text-\[var\(--gov-text\)\]:hover {
+  color: var(--gov-text);
+}
 .hover\:text-brand-700:hover {
   --tw-text-opacity: 1;
   color: rgb(30 64 175 / var(--tw-text-opacity, 1));
@@ -3187,9 +3210,6 @@ body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: anti
 .hover\:text-gray-800:hover {
   --tw-text-opacity: 1;
   color: rgb(31 41 55 / var(--tw-text-opacity, 1));
-}
-.hover\:text-\[var\(--gov-text\)\]:hover {
-  color: var(--gov-text);
 }
 .hover\:underline:hover {
   text-decoration-line: underline;
