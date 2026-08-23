@@ -1,14 +1,8 @@
-// One-off fix: patches the corrupted "organization" field on existing users.
-// Broader match this time — catches ANY organization value that starts with
-// "Civic" but isn't already the correct Devanagari string, and overwrites it.
-//
-// Usage (run from inside the backend/ folder):
-//   node fix-organization.js
-//
+
 require('dotenv').config();
 const mongoose = require('mongoose');
 const dns = require('dns');
-dns.setServers(['8.8.8.8', '8.8.4.4']); // matches db.js — needed to resolve the mongodb+srv:// record
+dns.setServers(['8.8.8.8', '8.8.4.4']); 
 const User = require('./models/User');
 
 const GOOD_VALUE = 'Civicदृष्टि';
@@ -19,7 +13,7 @@ async function main() {
   });
   console.log('Connected to MongoDB');
 
-  // Find every user whose organization starts with "Civic" (case-sensitive)
+  // Find every user whose organization starts with "Civic"
   const candidates = await User.find({
     organization: { $regex: /^Civic/ },
   }).select('email organization');

@@ -5,7 +5,7 @@ import { get } from '@/lib/api';
 import { formatNPR, formatNumber, cn } from '@/lib/format';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { AlertCircle, ArrowRight, Building2, CheckCircle2, Clock3, FileText, Landmark, MapPin, ShieldCheck, Table2, WalletCards } from 'lucide-react';
+import { AlertCircle, ArrowRight, Building2, CheckCircle2, Clock3, FileText, Landmark, MapPin, MapPinned, ShieldCheck, Table2, WalletCards } from 'lucide-react';
 
 const STATUS_TONE = {
   pending: 'bg-[#fff8e8] text-[#8a5a12] ring-[#f3dfb3]',
@@ -42,6 +42,8 @@ export default function DashboardPage() {
   const [reportStats, setReportStats] = useState(null);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [myWardBudget, setMyWardBudget] = useState(null);
+  const [myWardLoading, setMyWardLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -55,6 +57,48 @@ export default function DashboardPage() {
       setLoading(false);
     });
   }, []);
+
+  const myProvince = user?.civicLocation?.province || '';
+  const myDistrict = user?.civicLocation?.district || '';
+  const myMunicipality = user?.civicLocation?.municipality || '';
+  const myWard = user?.civicLocation?.ward || '';
+
+  useEffect(() => {
+    if (!myWard) { setMyWardBudget(null); setMyWardLoading(false); return; }
+    setMyWardLoading(true);
+    const params = new URLSearchParams();
+    if (myProvince) params.set('province', myProvince);
+    if (myDistrict) params.set('district', myDistrict);
+    // Municipality is intentionally left out of this filter: citizens type
+    // it freehand in Settings (e.g. "Biratnagar") while budget records are
+    // sometimes filed under the fuller official name (e.g. "Biratnagar
+    // Metropolitan City"), and the backend matches it exactly. District +
+    // ward is enough to reliably identify a citizen's ward.
+    params.set('ward', myWard);
+    params.set('limit', '5000');
+    get(`/api/budgets?${params.toString()}`)
+      .then((res) => {
+        const wardItems = res?.items || [];
+        const totals = wardItems.reduce((acc, item) => {
+          const flow = item.financialFlow || {};
+          acc.total += Number(flow.revisedBudget ?? item.amount ?? 0) || 0;
+          acc.spent += Number(flow.paidAmount ?? item.spent ?? 0) || 0;
+          acc.count += 1;
+          return acc;
+        }, { total: 0, spent: 0, count: 0 });
+        const remaining = Math.max(0, totals.total - totals.spent);
+        const progress = totals.total ? Math.min(100, Math.round((totals.spent / totals.total) * 100)) : 0;
+        setMyWardBudget({ ...totals, remaining, progress });
+      })
+      .catch(() => setMyWardBudget(null))
+      .finally(() => setMyWardLoading(false));
+  }, [myProvince, myDistrict, myWard]);
+
+  const myWardDetailsHref = `/budget?${new URLSearchParams({
+    ...(myProvince ? { province: myProvince } : {}),
+    ...(myDistrict ? { district: myDistrict } : {}),
+    ward: myWard,
+  }).toString()}`;
 
   const k = data?.kpis || {};
   const totalReports = reportStats?.total || 0;
@@ -90,8 +134,22 @@ export default function DashboardPage() {
     ];
   }, [reports, t]);
 
+  const showWardCard = ['researcher', 'ward_rep'].includes(user?.role);
+
   return (
     <div className="mx-auto max-w-[1280px] space-y-6 sm:space-y-8">
+      {showWardCard && (
+        <MyWardBudgetCard
+          t={t}
+          ward={myWard}
+          municipality={myMunicipality}
+          district={myDistrict}
+          loading={myWardLoading}
+          budget={myWardBudget}
+          detailsHref={myWardDetailsHref}
+        />
+      )}
+
       <section className="grid gap-4 lg:grid-cols-[1.5fr_0.9fr]">
         <div className="gov-card p-5 sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -277,6 +335,76 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function MyWardBudgetCard({ t, ward, municipality, district, loading, budget, detailsHref }) {
+  if (!ward) {
+    return (
+      <section className="gov-card flex flex-wrap items-center justify-between gap-3 p-4">
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#fff4f3] text-[var(--gov-primary)]"><MapPinned className="h-4 w-4" /></span>
+          <div>
+            <p className="text-sm font-semibold text-[var(--gov-text)]">{t('dashboard.noWardSet')}</p>
+            <p className="gov-secondary">{t('dashboard.noWardSetSub')}</p>
+          </div>
+        </div>
+        <Link href="/settings" className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--gov-primary)] px-3 text-xs font-medium text-white transition hover:bg-[var(--gov-primary-dark)]">
+          {t('dashboard.goToSettings')} <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      </section>
+    );
+  }
+
+  const totalBudget = budget?.total || 0;
+  const spentBudget = budget?.spent || 0;
+  const remainingBudget = budget?.remaining || 0;
+  const progress = budget?.progress || 0;
+  const wardNumber = String(ward).replace(/^Ward\s+/i, '').trim();
+  const locationLine = [municipality, district].filter(Boolean).join(' · ');
+  const hasData = budget && budget.count > 0;
+
+  return (
+    <section className="gov-card flex flex-wrap items-center gap-4 border border-[var(--gov-primary)]/20 p-4">
+      <div className="flex shrink-0 items-center gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#fff4f3] text-[var(--gov-primary)]"><Landmark className="h-4 w-4" /></span>
+        <div>
+          <p className="text-sm font-semibold text-[var(--gov-text)]">{t('dashboard.myWardBudget')} · Ward {wardNumber}</p>
+          <p className="gov-secondary">{locationLine || t('dashboard.myWardBudgetSub')}</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex flex-1 flex-wrap gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-9 w-24" />)}
+        </div>
+      ) : !hasData ? (
+        <p className="gov-secondary flex-1">{t('dashboard.noWardBudget')}</p>
+      ) : (
+        <div className="flex min-w-[220px] flex-1 flex-wrap items-center gap-x-6 gap-y-2">
+          <InlineStat label={t('dashboard.allocated')} value={formatNPR(totalBudget)} />
+          <InlineStat label={t('dashboard.spent')} value={formatNPR(spentBudget)} />
+          <InlineStat label={t('dashboard.remaining')} value={formatNPR(remainingBudget)} />
+          <InlineStat label={t('dashboard.progress')} value={`${progress}%`} />
+          <div className="h-1.5 min-w-[100px] flex-1 overflow-hidden rounded-full bg-[#edf2f7] dark:bg-[#1f2937]">
+            <div className="h-full rounded-full bg-[var(--gov-primary)] transition-all" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      )}
+
+      <Link href={detailsHref} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--gov-primary)] px-3 text-xs font-medium text-white transition hover:bg-[var(--gov-primary-dark)]">
+        {t('dashboard.viewDetails')} <ArrowRight className="h-3.5 w-3.5" />
+      </Link>
+    </section>
+  );
+}
+
+function InlineStat({ label, value }) {
+  return (
+    <div>
+      <p className="gov-label uppercase leading-tight">{label}</p>
+      <p className="text-sm font-semibold leading-tight text-[var(--gov-text)]">{value}</p>
     </div>
   );
 }

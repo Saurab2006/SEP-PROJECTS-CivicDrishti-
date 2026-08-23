@@ -1,19 +1,85 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { get, patch, post } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/format';
 import { toast } from 'sonner';
-import { Check, MapPinned, Plus, ShieldCheck, X } from 'lucide-react';
+import { Building2, Check, ChevronRight, MapPin, MapPinned, Plus, Search, X } from 'lucide-react';
 import Pagination from '@/components/Pagination';
 
 const emptyWard = { province: '', district: '', municipality: '', ward: '', representative: '' };
 
-export default function WardAdminPage() {
-  const { user } = useAuth();
-  const [wards, setWards] = useState([]);
-  const [applications, setApplications] = useState([]);
+function TabButton({ active, onClick, icon: Icon, label, note }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors',
+        active
+          ? 'border-[var(--gov-primary)] bg-[var(--gov-primary)]/10 text-[var(--gov-primary)]'
+          : 'border-[var(--gov-border)] bg-white text-[var(--gov-muted)] hover:border-[var(--gov-primary)]/40 hover:text-[var(--gov-text)]'
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+      {note && <span className="hidden text-xs font-normal text-[var(--gov-muted)] sm:inline">- {note}</span>}
+    </button>
+  );
+}
+
+function DirectoryTab({ wards, loading }) {
+  const [q, setQ] = useState('');
+  const filtered = wards.filter(w => {
+    if (!q.trim()) return true;
+    const s = `${w.province} ${w.district} ${w.municipality} ${w.ward}`.toLowerCase();
+    return s.includes(q.trim().toLowerCase());
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--gov-muted)]" />
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Search by province, district, municipality, or ward..."
+          className="h-10 w-full rounded-lg border border-[var(--gov-border)] bg-white pl-9 pr-3 text-sm outline-none focus:border-[var(--gov-primary)]"
+        />
+      </div>
+
+      {loading ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="shimmer h-20 rounded-xl" />)}</div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-xl border border-[var(--gov-border)] bg-white p-12 text-center text-sm text-[var(--gov-muted)] shadow-sm">
+          <Building2 className="mx-auto mb-2 h-7 w-7 text-[var(--gov-border)]" />
+          No wards found.
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map(w => (
+            <Link
+              key={w._id}
+              href={`/wards/${w._id}`}
+              className="flex items-center justify-between rounded-xl border border-[var(--gov-border)] bg-white p-4 shadow-sm transition hover:border-[var(--gov-primary)]/50 hover:shadow-md"
+            >
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gov-text)]"><MapPin className="h-3.5 w-3.5 text-[var(--gov-primary)]" />Ward {w.ward}</p>
+                <p className="mt-1 truncate text-xs text-[var(--gov-muted)]">{w.municipality || w.district}{w.district && w.municipality ? `, ${w.district}` : ''}</p>
+                <p className="text-[11px] text-[var(--gov-muted)]">{w.province}</p>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[var(--gov-border)]" />
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManageTab({ wards, applications, loading, reload }) {
   const [form, setForm] = useState(emptyWard);
-  const [loading, setLoading] = useState(true);
   const [appPage, setAppPage] = useState(1);
   const [appLimit, setAppLimit] = useState(10);
   const [wardPage, setWardPage] = useState(1);
@@ -30,30 +96,18 @@ export default function WardAdminPage() {
   useEffect(() => { setAppPage(1); }, [appLimit, applications.length]);
   useEffect(() => { setWardPage(1); }, [wardLimit, wards.length]);
 
-  const load = () => Promise.all([get('/api/wards'), get('/api/wards/representatives/applications')])
-    .then(([w, a]) => { setWards(w.wards || []); setApplications(a.applications || []); setLoading(false); })
-    .catch(e => { toast.error(e.message); setLoading(false); });
-  useEffect(() => { if (user?.role === 'admin') load(); }, [user?.role]);
-
   const saveWard = async (e) => {
     e.preventDefault();
-    try { await post('/api/wards', form); toast.success('Ward saved'); setForm(emptyWard); load(); }
+    try { await post('/api/wards', form); toast.success('Ward saved'); setForm(emptyWard); reload(); }
     catch (err) { toast.error(err.message); }
   };
   const review = async (id, wardRepresentativeStatus) => {
-    try { await patch(`/api/users/${id}`, { wardRepresentativeStatus }); toast.success(wardRepresentativeStatus === 'approved' ? 'Ward representative approved' : 'Applicant rejected and banned'); load(); }
+    try { await patch(`/api/users/${id}`, { wardRepresentativeStatus }); toast.success(wardRepresentativeStatus === 'approved' ? 'Ward representative approved' : 'Applicant rejected and banned'); reload(); }
     catch (err) { toast.error(err.message); }
   };
 
-  if (user?.role !== 'admin') return <div className="text-sm text-[var(--gov-muted)]">Admin only.</div>;
-
   return (
-    <div className="mx-auto max-w-[1400px] space-y-5">
-      <div>
-        <p className="gov-label uppercase">Administration</p>
-        <h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Manage ward offices</h1>
-      </div>
-
+    <div className="space-y-5">
       <form onSubmit={saveWard} className="rounded-xl border border-[var(--gov-border)] bg-white p-4 shadow-sm sm:p-5">
         <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-[var(--gov-text)]"><Plus className="h-4 w-4 text-[var(--gov-primary)]" />Create or update ward</h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -93,6 +147,42 @@ export default function WardAdminPage() {
         <div className="grid gap-3 p-3 md:hidden">{pagedWards.map(w => <div key={w._id} className="rounded-lg border border-[var(--gov-border)] p-3"><p className="font-semibold text-[var(--gov-text)]">Ward {w.ward}, {w.municipality || w.district}</p><p className="mt-1 text-sm text-[var(--gov-muted)]">{w.province} / {w.district}</p><p className="mt-2 text-sm">Representative: <span className="font-medium">{w.representative?.name || 'Unassigned'}</span></p></div>)}</div>
         <div className="border-t border-[var(--gov-border)] p-3"><Pagination page={safeWardPage} limit={wardLimit} total={wards.length} onPageChange={setWardPage} onLimitChange={setWardLimit} label="wards" /></div>
       </section>
+    </div>
+  );
+}
+
+export default function WardOfficesPage() {
+  const { user } = useAuth();
+  const [tab, setTab] = useState('directory');
+  const [wards, setWards] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => Promise.all([get('/api/wards'), get('/api/wards/representatives/applications')])
+    .then(([w, a]) => { setWards(w.wards || []); setApplications(a.applications || []); setLoading(false); })
+    .catch(e => { toast.error(e.message); setLoading(false); });
+  useEffect(() => { if (user?.role === 'admin') load(); }, [user?.role]);
+
+  if (user?.role !== 'admin') return <div className="text-sm text-[var(--gov-muted)]">Admin only.</div>;
+
+  const pendingCount = applications.filter(a => a.wardRepresentativeApplication?.status === 'pending').length;
+
+  return (
+    <div className="mx-auto max-w-[1400px] space-y-5">
+      <div>
+        <p className="gov-label uppercase">Administration</p>
+        <h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Ward offices</h1>
+        <p className="mt-1 text-sm text-[var(--gov-muted)]">Browse the ward directory, or manage ward records and representative applications.</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <TabButton active={tab === 'directory'} onClick={() => setTab('directory')} icon={MapPin} label="Directory" note={`${wards.length} wards`} />
+        <TabButton active={tab === 'manage'} onClick={() => setTab('manage')} icon={MapPinned} label="Manage" note={pendingCount ? `${pendingCount} pending` : undefined} />
+      </div>
+
+      {tab === 'directory'
+        ? <DirectoryTab wards={wards} loading={loading} />
+        : <ManageTab wards={wards} applications={applications} loading={loading} reload={load} />}
     </div>
   );
 }

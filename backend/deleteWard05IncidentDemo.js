@@ -1,11 +1,3 @@
-// One-time cleanup script: removes the 3 demo IncidentReport records
-// ("Potholes near Ward 05 school road", "Drain cover broken beside Ward 05
-// road project", "Dust and unsafe edge after road widening") that were
-// inserted by backend/scripts/seedKoshiShowcaseBudget.js before that
-// script was updated to stop creating them.
-//
-// Usage (run from the backend/ folder, or adjust the require paths below):
-//   node deleteWard05IncidentDemo.js
 
 require('dns').setServers(['8.8.8.8', '8.8.4.4']);
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });

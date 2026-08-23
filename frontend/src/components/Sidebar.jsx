@@ -20,7 +20,7 @@ const GROUPS = [
     key: 'nav.accountability',
     items: [
            { href: '/authorities', key: 'nav.authorities', note: 'nav.authoritiesNote', icon: Landmark },
-      { href: '/wards', key: 'nav.wards', note: 'nav.wardsNote', icon: MapPinned, hideForRoles: ['ward_rep'] },
+      { href: '/wards', key: 'nav.wards', note: 'nav.wardsNote', icon: MapPinned, hideForRoles: ['ward_rep', 'admin'] },
     ],
   },
 ];

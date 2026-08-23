@@ -96,6 +96,29 @@ export default function BudgetPage() {
   useEffect(() => { load(); }, []);
   useEffect(() => { loadChanges(); }, [user?.role]);
 
+  // Deep-link support: /budget?district=..&ward=.. (e.g. from the "My Ward
+  // Budget" card on the Citizen Dashboard) drops the visitor straight into
+  // that ward's filtered project list instead of making them click through
+  // Province -> District -> Municipality -> Ward. Municipality is
+  // deliberately left unfiltered here (an empty node name, skipped below) —
+  // citizens' registered municipality spelling doesn't always match how it's
+  // recorded on budget records, and district + ward is enough to identify
+  // the right ward.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const qDistrict = params.get('district');
+    const qWard = params.get('ward');
+    if (qDistrict && qWard) {
+      setPath([
+        { id: 'deep-link-province', name: params.get('province') || 'Koshi Province' },
+        { id: 'deep-link-district', name: qDistrict },
+        { id: 'deep-link-municipality', name: params.get('municipality') || '' },
+        { id: 'deep-link-ward', name: qWard },
+      ]);
+    }
+  }, []);
+
   const nodes = useMemo(() => {
     if (!tracking) return [];
     const source = tracking[`${currentLevel}s`] || [];
@@ -147,7 +170,7 @@ export default function BudgetPage() {
     const [province, district, municipality, ward] = path;
     if (province) params.set('province', province.name);
     if (district) params.set('district', district.name);
-    if (municipality) params.set('municipality', municipality.name);
+    if (municipality?.name) params.set('municipality', municipality.name);
     if (ward) params.set('ward', wardValue(ward.name));
     if (q.trim()) params.set('project', q.trim());
     return params;
@@ -214,7 +237,7 @@ export default function BudgetPage() {
     const [province, district, municipality, ward] = path;
     if (province && (item.province || 'Koshi Province') !== province.name) return false;
     if (district && item.district !== district.name) return false;
-    if (municipality && item.municipality !== municipality.name) return false;
+    if (municipality && municipality.name && item.municipality !== municipality.name) return false;
     if (ward && !sameWard(item.ward, ward.name)) return false;
     if (recordStatus !== 'all' && (item.status || 'planned') !== recordStatus) return false;
     if (recordQuery.trim()) {
@@ -278,7 +301,7 @@ export default function BudgetPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#eee6d8] p-4">
           <div className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#65706c]">
             <button onClick={() => jumpTo(-1)} className={cn('rounded-md px-2 py-1', path.length === 0 ? 'bg-[#eef6f4] text-[#0f3d3e]' : 'hover:bg-[#f7f2ea]')}>Provinces</button>
-            {path.map((p, i) => <span key={p.id} className="flex items-center gap-2"><ChevronRight className="h-4 w-4 text-[#b8ad9b]" /><button onClick={() => jumpTo(i)} className="rounded-md px-2 py-1 hover:bg-[#f7f2ea]">{p.name}</button></span>)}
+            {path.map((p, i) => p.name ? <span key={p.id} className="flex items-center gap-2"><ChevronRight className="h-4 w-4 text-[#b8ad9b]" /><button onClick={() => jumpTo(i)} className="rounded-md px-2 py-1 hover:bg-[#f7f2ea]">{p.name}</button></span> : null)}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">

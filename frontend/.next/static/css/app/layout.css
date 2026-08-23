@@ -1168,6 +1168,9 @@ input:where([type='file']):focus {
 .w-full {
   width: 100%;
 }
+.w-11 {
+  width: 2.75rem;
+}
 .min-w-0 {
   min-width: 0px;
 }
@@ -1200,6 +1203,9 @@ input:where([type='file']):focus {
 }
 .min-w-\[980px\] {
   min-width: 980px;
+}
+.min-w-\[100px\] {
+  min-width: 100px;
 }
 .max-w-2xl {
   max-width: 42rem;
@@ -1409,6 +1415,13 @@ input:where([type='file']):focus {
 }
 .gap-y-8 {
   row-gap: 2rem;
+}
+.gap-x-6 {
+  -moz-column-gap: 1.5rem;
+       column-gap: 1.5rem;
+}
+.gap-y-2 {
+  row-gap: 0.5rem;
 }
 .space-y-1 > :not([hidden]) ~ :not([hidden]) {
   --tw-space-y-reverse: 0;
@@ -2083,6 +2096,9 @@ input:where([type='file']):focus {
 .p-8 {
   padding: 2rem;
 }
+.p-12 {
+  padding: 3rem;
+}
 .px-1 {
   padding-left: 0.25rem;
   padding-right: 0.25rem;
@@ -2609,6 +2625,9 @@ input:where([type='file']):focus {
 }
 .text-white\/80 {
   color: rgb(255 255 255 / 0.8);
+}
+.text-\[var\(--gov-border\)\] {
+  color: var(--gov-border);
 }
 .underline {
   text-decoration-line: underline;
@@ -3168,6 +3187,9 @@ body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: anti
 .hover\:text-gray-800:hover {
   --tw-text-opacity: 1;
   color: rgb(31 41 55 / var(--tw-text-opacity, 1));
+}
+.hover\:text-\[var\(--gov-text\)\]:hover {
+  color: var(--gov-text);
 }
 .hover\:underline:hover {
   text-decoration-line: underline;
