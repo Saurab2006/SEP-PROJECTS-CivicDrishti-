@@ -39,3 +39,4 @@ notificationSchema.post('save', function (doc) { emailForNotification(doc); });
 notificationSchema.post('insertMany', function (docs) { (docs || []).forEach(emailForNotification); });
 
 module.exports = mongoose.model('Notification', notificationSchema);
+

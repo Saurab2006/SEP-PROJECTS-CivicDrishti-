@@ -51,7 +51,7 @@ export default function WardAdminPage() {
     <div className="mx-auto max-w-[1400px] space-y-5">
       <div>
         <p className="gov-label uppercase">Administration</p>
-        <h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Ward offices</h1>
+        <h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Manage ward offices</h1>
       </div>
 
       <form onSubmit={saveWard} className="rounded-xl border border-[var(--gov-border)] bg-white p-4 shadow-sm sm:p-5">

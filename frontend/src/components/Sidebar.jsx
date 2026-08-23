@@ -20,7 +20,7 @@ const GROUPS = [
     key: 'nav.accountability',
     items: [
            { href: '/authorities', key: 'nav.authorities', note: 'nav.authoritiesNote', icon: Landmark },
-      { href: '/wards', key: 'nav.wards', note: 'nav.wardsNote', icon: MapPinned },
+      { href: '/wards', key: 'nav.wards', note: 'nav.wardsNote', icon: MapPinned, hideForRoles: ['ward_rep'] },
     ],
   },
 ];
@@ -76,7 +76,7 @@ export default function Sidebar({ collapsed = false, mobileOpen = false, onMobil
           <section key={group.key} className="mb-6">
             {!collapsed && <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-[#4e6174]">{t(group.key)}</p>}
             <div className="space-y-1">
-              {group.items.map(i => item(i.href, t(i.key), t(i.note), i.icon))}
+              {group.items.filter(i => !i.hideForRoles?.includes(user?.role)).map(i => item(i.href, t(i.key), t(i.note), i.icon))}
               {group.key === 'nav.accountability' && user?.role === 'admin' && item('/admin/audit-logs', t('nav.auditLogs'), t('nav.auditLogsNote'), ScrollText)}
             </div>
           </section>
@@ -92,7 +92,7 @@ export default function Sidebar({ collapsed = false, mobileOpen = false, onMobil
             {!collapsed && <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-[#4e6174]">{t('nav.administration')}</p>}
             <div className="space-y-1">
               {item('/admin/users', t('nav.userManagement'), t('nav.usersNote'), Users)}
-              {item('/admin/wards', t('nav.wards'), t('nav.wardsNote'), MapPinned)}
+              {item('/admin/wards', t('nav.wardsAdmin'), t('nav.wardsAdminNote'), MapPinned)}
               {item('/admin/municipality-heads', 'Municipality heads', 'local government access', Building2)}
             </div>
           </section>

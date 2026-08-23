@@ -1,0 +1,9 @@
+{
+  "/login/page": "app/login/page.js",
+  "/(protected)/budget/page": "app/(protected)/budget/page.js",
+  "/(protected)/dashboard/page": "app/(protected)/dashboard/page.js",
+  "/(protected)/issues/page": "app/(protected)/issues/page.js",
+  "/(protected)/issues/[id]/page": "app/(protected)/issues/[id]/page.js",
+  "/(protected)/wards/page": "app/(protected)/wards/page.js",
+  "/(protected)/admin/users/page": "app/(protected)/admin/users/page.js"
+}

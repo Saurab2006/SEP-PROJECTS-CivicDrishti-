@@ -17,6 +17,7 @@ export const translations = {
     'nav.reports': 'Briefs',
     'nav.userManagement': 'User management',
     'nav.wards': 'Ward offices',
+    'nav.wardsAdmin': 'Manage ward offices',
     'nav.settings': 'Settings',
     'nav.municipalityHeads': 'Municipality heads',
     'nav.municipalityDashboard': 'Municipality dashboard',
@@ -34,6 +35,7 @@ export const translations = {
     'nav.briefsNote': 'exports and summaries',
     'nav.usersNote': 'roles and verification',
     'nav.wardsNote': 'representatives',
+    'nav.wardsAdminNote': 'ward records and applications',
     'nav.settingsNote': 'profile and security',
     'nav.workspaceNote': 'Government transparency workspace',
 
@@ -194,6 +196,7 @@ export const translations = {
     'nav.reports': 'संक्षेपहरू',
     'nav.userManagement': 'प्रयोगकर्ता व्यवस्थापन',
     'nav.wards': 'वडा कार्यालयहरू',
+    'nav.wardsAdmin': 'वडा कार्यालय व्यवस्थापन',
     'nav.settings': 'सेटिङहरू',
     'nav.municipalityHeads': 'पालिका प्रमुख',
     'nav.municipalityDashboard': 'पालिका ड्यासबोर्ड',
@@ -211,6 +214,7 @@ export const translations = {
     'nav.briefsNote': 'निर्यात र सारांश',
     'nav.usersNote': 'भूमिका र प्रमाणिकरण',
     'nav.wardsNote': 'प्रतिनिधिहरू',
+    'nav.wardsAdminNote': 'वडा रेकर्ड र आवेदनहरू',
     'nav.settingsNote': 'प्रोफाइल र सुरक्षा',
     'nav.workspaceNote': 'सरकारी पारदर्शिता कार्यक्षेत्र',
 
