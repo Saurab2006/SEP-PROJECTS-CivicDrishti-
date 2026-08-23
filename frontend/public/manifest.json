@@ -1,0 +1,18 @@
+{
+  "name": "Civicदृष्टि - Civic Service Accountability",
+  "short_name": "Civicदृष्टि",
+  "description": "Report, verify, assign, and track ward issues with public accountability.",
+  "start_url": "/dashboard",
+  "id": "/dashboard",
+  "display": "standalone",
+  "background_color": "#f5f1e8",
+  "theme_color": "#0f3d3e",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "icons": [
+    { "src": "/icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

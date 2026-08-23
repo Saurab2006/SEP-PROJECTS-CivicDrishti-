@@ -1,0 +1,23 @@
+{
+  "name": "govinsight-nepal",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "npm run dev --workspace backend",
+    "client": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "start": "npm run start --workspace backend & npm run start --workspace frontend",
+    "typecheck": "echo ok"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4"
+  },
+  "dependencies": {
+    "face-api.js": "^0.22.2",
+    "maplibre-gl": "^6.2.0"
+  }
+}
