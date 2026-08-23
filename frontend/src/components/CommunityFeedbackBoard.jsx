@@ -25,10 +25,6 @@ const emptyFilters = { province: '', district: '', municipality: '', ward: '', p
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
-
-// Top-of-page summary card. Always visible on the Public Budget view - this
-// is the entry point into the full national feedback board, it does not
-// replace the existing per-project feedback panel used elsewhere on this page.
 export default function CommunityFeedbackBoard() {
   const [open, setOpen] = useState(false);
   const { rows: allRows, loading: liveLoading, error: liveError } = useNationalFeedback();
@@ -100,10 +96,6 @@ function FeedbackBoardModal({ onClose, rows, liveLoading }) {
     setPage(1);
   };
 
-  // Location filter options are derived from the live data (real + demo)
-  // rather than a fixed lookup table, so a citizen's own registered
-  // district/municipality/ward always shows up as a selectable filter -
-  // even though real accounts type their location freely at signup.
   const districts = useMemo(() => uniqueSorted(rows.filter(r => !filters.province || r.province === filters.province).map(r => r.district)), [rows, filters.province]);
   const municipalities = useMemo(() => uniqueSorted(rows.filter(r => (!filters.province || r.province === filters.province) && (!filters.district || r.district === filters.district)).map(r => r.municipality)), [rows, filters.province, filters.district]);
   const wards = useMemo(() => uniqueSorted(rows.filter(r => (!filters.province || r.province === filters.province) && (!filters.district || r.district === filters.district) && (!filters.municipality || r.municipality === filters.municipality)).map(r => r.ward)), [rows, filters.province, filters.district, filters.municipality]);
@@ -159,7 +151,6 @@ function FeedbackBoardModal({ onClose, rows, liveLoading }) {
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#dc143c]">Community Feedback · All 7 provinces</p>
             <h3 className="mt-0.5 text-base font-black text-[#102a2b]">National feedback board</h3>
-            <p className="mt-1 text-xs text-[#65706c]">Citizen names shown as registered; phone, email, and address are never shown here. Real feedback appears alongside <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">Demo Data</span>.</p>
           </div>
           <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-[#8c8272] hover:bg-[#fffaf2]"><X className="h-4 w-4" /></button>
         </div>
@@ -250,9 +241,6 @@ function FilterSelect({ label, value, onChange, options, disabled, prefix = '', 
   );
 }
 
-// Deliberately renders only citizen name/Anonymous + registered location -
-// never phone, email, or street address, matching the same public-projection
-// rule used by the live per-project feedback endpoint.
 function NationalFeedbackCard({ row }) {
   const type = TYPE_META[row.feedbackType] || TYPE_META.yes;
   const TypeIcon = type.icon;
@@ -289,7 +277,6 @@ function NationalFeedbackCard({ row }) {
       {row.comment && <p className="mt-1.5 text-xs leading-relaxed text-[#65706c]">{row.comment}</p>}
 
       {!row.isDemo && row.photoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
         <img src={row.photoUrl} alt="Citizen submitted evidence" className="mt-2 h-28 w-full rounded-lg border border-[#eee6d8] object-cover" />
       )}
 

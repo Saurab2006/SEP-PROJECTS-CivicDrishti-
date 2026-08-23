@@ -56,7 +56,6 @@ export default function Sidebar({ collapsed = false, mobileOpen = false, onMobil
         {!collapsed && (
           <span className="min-w-0">
             <span className="block truncate text-sm font-medium leading-5">{label}</span>
-            <span className={cn('block truncate text-xs', active ? 'text-[#66768a]' : 'text-[#4e6174]')}>{note}</span>
           </span>
         )}
       </Link>
@@ -111,7 +110,6 @@ export default function Sidebar({ collapsed = false, mobileOpen = false, onMobil
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium leading-5 text-[#17212b]">{user.name}</p>
                   <p className="truncate text-xs font-normal leading-4 text-[#263442]">{t(roleKey)}</p>
-                  <p className="truncate text-xs font-normal leading-4 text-[#4e6174]">{t(accessKey)}</p>
                 </div>
                 <button onClick={logout} title={t('topbar.signOut')} className="rounded-md p-2 text-[#4e6174] transition-colors hover:bg-white/55 hover:text-[#17212b]">
                   <LogOut className="h-4 w-4" />
@@ -136,5 +134,3 @@ export default function Sidebar({ collapsed = false, mobileOpen = false, onMobil
     </>
   );
 }
-
-

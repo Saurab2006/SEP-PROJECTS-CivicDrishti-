@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import OfflineBanner from './OfflineBanner';
 import ImportantNoticeBanner from './ImportantNoticeBanner';
+import RouteProgress from './RouteProgress';
 
 
 export default function ProtectedLayout({ children }) {
@@ -40,6 +41,7 @@ export default function ProtectedLayout({ children }) {
 
   return (
     <div className="gov-app min-h-screen overflow-x-hidden">
+      <RouteProgress />
       <div className="flex min-h-screen min-w-0">
         <Sidebar collapsed={sidebarCollapsed} mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)} />
         <div className="flex min-w-0 flex-1 flex-col">

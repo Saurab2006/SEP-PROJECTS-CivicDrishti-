@@ -3,8 +3,11 @@ import Link from 'next/link';
 import styles from '@/styles/civicAuth.module.css';
 import { CivicLogo } from '@/components/CivicBrand';
 import ThemeToggle from '@/components/ThemeToggle';
+import { useLanguage } from '@/context/LanguageContext';
+import { Languages } from 'lucide-react';
 
 export default function CivicAuthShell({ activeTab, children }) {
+  const { locale, toggleLocale } = useLanguage();
   return (
     <div className={styles.shell}>
       <div className={`${styles.authShell} ${activeTab === 'login' ? styles.loginShell : ''}`}>
@@ -50,7 +53,19 @@ export default function CivicAuthShell({ activeTab, children }) {
             <div className={styles.mobileLogo}><CivicLogo /></div>
             <div className={styles.authTopRow}>
               <p className={styles.eyebrow} style={{ margin: 0 }}>Secure Civic Access</p>
-              <ThemeToggle />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={toggleLocale}
+                  aria-label="Toggle language"
+                  data-no-auto-translate
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 36, padding: '0 10px', borderRadius: 8, border: '1px solid var(--gov-border)', background: 'transparent', fontSize: 13, fontWeight: 500, color: 'var(--gov-muted)', cursor: 'pointer' }}
+                >
+                  <Languages size={15} />
+                  <span>{locale === 'en' ? 'नेपाली' : 'English'}</span>
+                </button>
+                <ThemeToggle />
+              </div>
             </div>
             <div className={styles.tierTabs}>
               <Link href="/login" className={`${styles.tierTab} ${activeTab === 'login' ? styles.tierTabActive : ''}`}>Log in</Link>

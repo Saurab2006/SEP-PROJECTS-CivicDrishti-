@@ -21,7 +21,7 @@ export async function api(path, init = {}) {
   if (!(init.body instanceof FormData)) headers['Content-Type'] = 'application/json';
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(path, { ...init, headers, cache: init.cache || 'no-store' });
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error(data?.error || `Request failed (${res.status})`);
   return data;
@@ -32,4 +32,3 @@ export const post = (path, body) => api(path, { method: 'POST', body: JSON.strin
 export const patch = (path, body) => api(path, { method: 'PATCH', body: JSON.stringify(body) });
 
 export const del = (path) => api(path, { method: 'DELETE' });
-

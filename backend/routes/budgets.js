@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const BudgetItem = require('../models/BudgetItem');
 const Document = require('../models/Document');
 const Activity = require('../models/Activity');
@@ -45,7 +45,7 @@ function publicBudgetItem(i) {
 function csvEscape(value) { return `"${String(value ?? '').replace(/"/g, '""')}"`; }
 
 function buildBudgetFilter(req) {
-  const q = req.query || {};
+  const q = req.query || req || {};
   const filter = {};
   if (q.province && q.province !== 'all') filter.province = q.province;
   if (q.district && q.district !== 'all') filter.district = q.district;
@@ -91,6 +91,12 @@ async function resolveWardUnitId({ province, district, municipality, ward, creat
   ).select('_id');
   return doc?._id || null;
 }
+function wardLabel(value) {
+  const raw = String(value || '').replace(/^Ward\\s+/i, '').trim();
+  if (!raw) return 'Ward not specified';
+  const num = Number.parseInt(raw, 10);
+  return Number.isFinite(num) ? Ward  : Ward ;
+}
 function wardVariants(value) {
   const raw = String(value || '').replace(/^Ward\s+/i, '').trim();
   if (!raw) return ['__none__'];
@@ -98,6 +104,55 @@ function wardVariants(value) {
   const variants = new Set([raw, raw.padStart(2, '0'), `Ward ${raw}`, `Ward ${raw.padStart(2, '0')}`]);
   if (Number.isFinite(num)) variants.add(String(num));
   return Array.from(variants);
+}
+let approvedCreateSyncAt = 0;
+async function syncApprovedCreatedBudgets() {
+  if (Date.now() - approvedCreateSyncAt < 5000) return;
+  approvedCreateSyncAt = Date.now();
+  const changes = await ChangeRequest.find({ status: 'approved', type: 'create' }).sort({ reviewedAt: -1 }).limit(200);
+  for (const change of changes) {
+    const p = change.proposed || {};
+    if (!p.title || !p.document) continue;
+    if (change.budgetItem) {
+      const linked = await BudgetItem.exists({ _id: change.budgetItem });
+      if (linked) continue;
+    }
+    const existing = await BudgetItem.findOne({ $or: [{ document: p.document }, { title: p.title, fiscalYear: p.fiscalYear, district: p.district || '', municipality: p.municipality || '', ward: p.ward || '' }] }).select('_id');
+    if (existing) {
+      change.budgetItem = existing._id;
+      await change.save();
+      continue;
+    }
+    const amount = numericValue(p.amount, 0);
+    const created = await BudgetItem.create({
+      user: change.user,
+      document: p.document,
+      title: p.title,
+      department: p.department || 'Municipal Office',
+      sector: p.sector || 'Other',
+      expenditureType: p.expenditureType || 'Capital Expenditure',
+      programType: p.programType || 'Infrastructure',
+      amount,
+      originalApprovedBudget: numericValue(p.originalApprovedBudget, amount),
+      revisedBudget: numericValue(p.revisedBudget, amount),
+      releasedAmount: numericValue(p.releasedAmount, 0),
+      disbursedAmount: numericValue(p.disbursedAmount || p.releasedAmount, 0),
+      contractedAmount: numericValue(p.contractedAmount, 0),
+      paidAmount: numericValue(p.paidAmount, 0),
+      spent: numericValue(p.paidAmount, 0),
+      fiscalYear: p.fiscalYear || '2082/83',
+      province: p.province || deriveProvince(p.district),
+      district: p.district || '',
+      municipality: p.municipality || '',
+      ward: p.ward || '',
+      wardUnit: p.wardUnit || null,
+      confidence: 1,
+      isDemo: false,
+      revisionHistory: [{ previous: {}, next: p, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: change.reviewedBy, status: 'approved', supportingDocument: p.document || null, reviewedAt: change.reviewedAt || new Date() }],
+    });
+    change.budgetItem = created._id;
+    await change.save();
+  }
 }
 function budgetManagementFilter(user, id) {
   if (user.role === 'ward_rep') {
@@ -220,6 +275,7 @@ router.get('/meta/fiscal-years', protect, async (req, res) => {
 
 router.get('/tracking', protect, async (req, res) => {
   try {
+    await syncApprovedCreatedBudgets();
     const [items, projects] = await Promise.all([
       BudgetItem.find({}).select('amount originalApprovedBudget revisedBudget releasedAmount contractedAmount paidAmount spent status completionOverride province district municipality ward').lean(),
       Project.find({}).select('budget spent status completionOverride province district municipality ward').lean(),
@@ -229,21 +285,12 @@ router.get('/tracking', protect, async (req, res) => {
 });
 router.get('/', protect, async (req, res) => {
   try {
-    const filter = {};
-    if (req.query.sector && req.query.sector !== 'all') filter.sector = req.query.sector;
-    if (req.query.fiscalYear && req.query.fiscalYear !== 'all') filter.fiscalYear = req.query.fiscalYear;
-    if (req.query.district && req.query.district !== 'all') filter.district = req.query.district;
-    if (req.query.ward && req.query.ward !== 'all') filter.ward = req.query.ward;
-    if (req.query.flagged === 'true') filter.flagged = true;
-    if (req.query.q) filter.$or = [
-      { title: { $regex: req.query.q, $options: 'i' } },
-      { department: { $regex: req.query.q, $options: 'i' } },
-      { district: { $regex: req.query.q, $options: 'i' } },
-      { municipality: { $regex: req.query.q, $options: 'i' } },
-    ];
+    await syncApprovedCreatedBudgets();
+    const filter = buildBudgetFilter(req.query);
+    if (req.query.ward && req.query.ward !== 'all') filter.ward = { $in: wardVariants(req.query.ward) };
 
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(1000, Math.max(1, Number.parseInt(req.query.limit, 10) || 100));
+    const limit = Math.min(5000, Math.max(1, Number.parseInt(req.query.limit, 10) || 100));
     const [items, total] = await Promise.all([
       BudgetItem.find(filter).sort({ amount: -1 }).skip((page - 1) * limit).limit(limit).populate('document', 'title'),
       BudgetItem.countDocuments(filter),
@@ -358,11 +405,29 @@ router.patch('/changes/:id', protect, requireRole('admin'), async (req, res) => 
     if (status === 'approved') {
       if (change.type === 'create' || !change.budgetItem) {
         const p = change.proposed || {};
-        const created = await BudgetItem.create({ user: change.user, document: p.document, title: p.title, department: p.department, sector: p.sector, expenditureType: p.expenditureType, programType: p.programType, amount: p.amount, originalApprovedBudget: p.originalApprovedBudget || p.amount, revisedBudget: p.revisedBudget || p.amount, releasedAmount: p.releasedAmount, contractedAmount: p.contractedAmount, paidAmount: p.paidAmount, fiscalYear: p.fiscalYear, province: p.province || deriveProvince(p.district), district: p.district || '', municipality: p.municipality || '', ward: p.ward || '', wardUnit: p.wardUnit || null, page: 1, confidence: 1, isDemo: false, revisionHistory: [{ previous: {}, next: p, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: p.document || null, reviewedAt: new Date() }] });
+        const approvedFlow = {
+          amount: numericValue(p.amount, 0),
+          originalApprovedBudget: numericValue(p.originalApprovedBudget, numericValue(p.amount, 0)),
+          revisedBudget: numericValue(p.revisedBudget, numericValue(p.amount, 0)),
+          releasedAmount: numericValue(p.releasedAmount, 0),
+          disbursedAmount: numericValue(p.disbursedAmount || p.releasedAmount, 0),
+          contractedAmount: numericValue(p.contractedAmount, 0),
+          paidAmount: numericValue(p.paidAmount, 0),
+          spent: numericValue(p.paidAmount, 0),
+        };
+        const created = await BudgetItem.create({ user: change.user, document: p.document, title: p.title, department: p.department, sector: p.sector, expenditureType: p.expenditureType, programType: p.programType, ...approvedFlow, fiscalYear: p.fiscalYear, province: p.province || deriveProvince(p.district), district: p.district || '', municipality: p.municipality || '', ward: p.ward || '', wardUnit: p.wardUnit || null, page: 1, confidence: 1, isDemo: false, revisionHistory: [{ previous: {}, next: p, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: p.document || null, reviewedAt: new Date() }] });
+        change.budgetItem = created._id;
+        await change.save();
         await Activity.create({ user: change.user, type: 'approval', message: `Approved new budget record "${p.title}"` });
         logAudit(req, { action: 'APPROVE_CHANGE', targetType: 'BudgetItem', targetId: created._id, targetLabel: p.title, previousValue: null, newValue: p, province: p.province || '', municipality: p.municipality || '', ward: p.ward || '' });
       } else {
-        await BudgetItem.findByIdAndUpdate(change.budgetItem._id, { $set: change.proposed || {}, $push: { revisionHistory: { previous: change.previous || {}, next: change.proposed || {}, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: change.proposed?.document || null, reviewedAt: new Date() } } }, { new: true });
+        const approvedUpdate = { ...(change.proposed || {}) };
+        ['amount', 'originalApprovedBudget', 'revisedBudget', 'releasedAmount', 'disbursedAmount', 'contractedAmount', 'paidAmount'].forEach(key => {
+          if (approvedUpdate[key] !== undefined) approvedUpdate[key] = numericValue(approvedUpdate[key], 0);
+        });
+        if (approvedUpdate.paidAmount !== undefined) approvedUpdate.spent = approvedUpdate.paidAmount;
+        if (!approvedUpdate.province && approvedUpdate.district) approvedUpdate.province = deriveProvince(approvedUpdate.district);
+        await BudgetItem.findByIdAndUpdate(change.budgetItem._id, { $set: approvedUpdate, $push: { revisionHistory: { previous: change.previous || {}, next: approvedUpdate, reason: change.reason || '', requestedBy: change.requestedBy, reviewedBy: req.user._id, status: 'approved', supportingDocument: change.proposed?.document || null, reviewedAt: new Date() } } }, { new: true });
         await Activity.create({ user: change.user, type: 'approval', message: `Approved budget update for "${change.budgetItem.title}"` });
         logAudit(req, { action: 'EDIT_BUDGET', targetType: 'BudgetItem', targetId: change.budgetItem._id, targetLabel: change.budgetItem.title, previousValue: change.previous || {}, newValue: change.proposed || {}, province: change.budgetItem.province || '', municipality: change.budgetItem.municipality || '', ward: change.budgetItem.ward || '' });
       }

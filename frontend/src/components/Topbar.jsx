@@ -51,7 +51,6 @@ export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMo
           </button>
           <Link href="/dashboard" className="lg:hidden"><CivicLogo compact /></Link>
           <div className="hidden lg:block">
-            <p className="gov-label uppercase">{t('topbar.workspace')}</p>
             <h1 className="mt-1 text-xl font-semibold leading-7 text-[var(--gov-text)]">{pageTitle}</h1>
           </div>
         </div>

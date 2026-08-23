@@ -4,7 +4,8 @@ import { t as translate, LOCALES } from '@/lib/i18n';
 
 const LanguageContext = createContext(null);
 const STORAGE_KEY = 'govinsight-locale';
-const GEMINI_TRANSLATION_CACHE = 'civicdrishti-ne-ui-cache-v1';
+const GEMINI_TRANSLATION_CACHE = 'civicdrishti-ne-ui-cache-v2';
+const TRANSLATABLE_ATTRS = ['placeholder', 'title', 'aria-label'];
 
 
 function isTranslatableText(text) {
@@ -30,9 +31,10 @@ function useGeminiUiTranslation(locale) {
 
     let cancelled = false;
     let timer = null;
-    const original = new Map();
+    const originalText = new Map();
+    const originalAttrs = new Map();
 
-    const collect = () => {
+    const collectTextNodes = () => {
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
           const parent = node.parentElement;
@@ -46,16 +48,34 @@ function useGeminiUiTranslation(locale) {
       return nodes;
     };
 
+    const collectAttrEntries = () => TRANSLATABLE_ATTRS.flatMap(attr => Array.from(document.querySelectorAll(`[${attr}]`))
+      .filter(el => !el.closest('[data-no-auto-translate],.maplibregl-map') && isTranslatableText(el.getAttribute(attr)))
+      .map(el => ({ el, attr })));
+
+    const rememberAttr = (el, attr, value) => {
+      if (!originalAttrs.has(el)) originalAttrs.set(el, {});
+      if (!originalAttrs.get(el)[attr]) originalAttrs.get(el)[attr] = value;
+    };
+
     const run = async () => {
-      const nodes = collect();
-      if (!nodes.length) return;
+      const textNodes = collectTextNodes();
+      const attrEntries = collectAttrEntries();
+      if (!textNodes.length && !attrEntries.length) return;
       const cache = readTranslationCache();
       const missing = [];
 
-      nodes.forEach(node => {
-        const text = String(original.get(node) || node.nodeValue || '').replace(/\s+/g, ' ').trim();
-        if (!original.has(node)) original.set(node, text);
+      textNodes.forEach(node => {
+        const text = String(originalText.get(node) || node.nodeValue || '').replace(/\s+/g, ' ').trim();
+        if (!originalText.has(node)) originalText.set(node, text);
         if (cache[text]) node.nodeValue = node.nodeValue.replace(text, cache[text]);
+        else if (!missing.includes(text)) missing.push(text);
+      });
+
+      attrEntries.forEach(({ el, attr }) => {
+        const current = String(el.getAttribute(attr) || '').replace(/\s+/g, ' ').trim();
+        const text = String(originalAttrs.get(el)?.[attr] || current).trim();
+        rememberAttr(el, attr, text);
+        if (cache[text]) el.setAttribute(attr, cache[text]);
         else if (!missing.includes(text)) missing.push(text);
       });
 
@@ -71,9 +91,14 @@ function useGeminiUiTranslation(locale) {
         const data = await res.json();
         (data.translations || []).forEach((translated, index) => { if (translated) cache[missing[index]] = translated; });
         writeTranslationCache(cache);
-        collect().forEach(node => {
-          const text = String(original.get(node) || node.nodeValue || '').replace(/\s+/g, ' ').trim();
+
+        collectTextNodes().forEach(node => {
+          const text = String(originalText.get(node) || node.nodeValue || '').replace(/\s+/g, ' ').trim();
           if (cache[text]) node.nodeValue = node.nodeValue.replace(text, cache[text]);
+        });
+        collectAttrEntries().forEach(({ el, attr }) => {
+          const text = String(originalAttrs.get(el)?.[attr] || el.getAttribute(attr) || '').trim();
+          if (cache[text]) el.setAttribute(attr, cache[text]);
         });
       } catch { }
     };
@@ -81,12 +106,13 @@ function useGeminiUiTranslation(locale) {
     const schedule = () => { clearTimeout(timer); timer = setTimeout(run, 300); };
     schedule();
     const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: TRANSLATABLE_ATTRS });
     return () => {
       cancelled = true;
       clearTimeout(timer);
       observer.disconnect();
-      original.forEach((text, node) => { if (node?.nodeValue) node.nodeValue = text; });
+      originalText.forEach((text, node) => { if (node?.nodeValue) node.nodeValue = text; });
+      originalAttrs.forEach((attrs, el) => { if (el) Object.entries(attrs).forEach(([attr, text]) => el.setAttribute(attr, text)); });
     };
   }, [locale]);
 }
@@ -98,7 +124,7 @@ export function LanguageProvider({ children }) {
   useEffect(() => {
     try {
       const saved = document.cookie.split('; ').find(row => row.startsWith(`${STORAGE_KEY}=`));
-      const value = saved ? saved.split('=')[1] : null;
+      const value = localStorage.getItem(STORAGE_KEY) || (saved ? saved.split('=')[1] : null);
       if (value && LOCALES[value]) setLocaleState(value);
     } catch { /* noop */ }
   }, []);
@@ -107,6 +133,7 @@ export function LanguageProvider({ children }) {
     if (!LOCALES[next]) return;
     setLocaleState(next);
     try {
+      localStorage.setItem(STORAGE_KEY, next);
       document.cookie = `${STORAGE_KEY}=${next}; path=/; max-age=31536000`;
       document.documentElement.lang = next;
     } catch { /* noop */ }
@@ -134,8 +161,6 @@ export function useLanguage() {
   return ctx;
 }
 
-// Convenience hook mirroring the shape used by next-i18next, so components
-// read naturally: const { t } = useTranslation();
 export function useTranslation() {
   const { t } = useLanguage();
   return { t };

@@ -47,6 +47,41 @@ function ResultBadge({ result }) {
   );
 }
 
+function humanizeKey(key) {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^./, c => c.toUpperCase());
+}
+
+function formatValue(value) {
+  if (value === '' || value === null || value === undefined) return '';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) return value.map(formatValue).filter(Boolean).join(', ');
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function FieldList({ value }) {
+  if (!value || typeof value !== 'object') {
+    return <p className="text-[var(--gov-text)]">{formatValue(value) || '—'}</p>;
+  }
+  const entries = Object.entries(value);
+  if (!entries.length) return <p className="text-[var(--gov-text)]">—</p>;
+  return (
+    <dl className="space-y-1">
+      {entries.map(([k, v]) => (
+        <div key={k} className="flex flex-wrap gap-x-1.5">
+          <dt className="font-medium text-[var(--gov-text)]">{humanizeKey(k)}:</dt>
+          <dd className="text-[var(--gov-muted)]">{formatValue(v)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function ValueDiff({ log }) {
   const [open, setOpen] = useState(false);
   const hasDetail = log.previousValue || log.newValue;
@@ -61,11 +96,11 @@ function ValueDiff({ log }) {
         <div className="mt-2 grid gap-2 rounded-lg bg-[var(--gov-surface-soft)] p-3 text-xs sm:grid-cols-2">
           <div>
             <p className="mb-1 font-semibold uppercase tracking-wide text-[var(--gov-muted)]">Previous</p>
-            <pre className="whitespace-pre-wrap break-words text-[var(--gov-text)]">{log.previousValue ? JSON.stringify(log.previousValue, null, 2) : '—'}</pre>
+            <FieldList value={log.previousValue} />
           </div>
           <div>
             <p className="mb-1 font-semibold uppercase tracking-wide text-[var(--gov-muted)]">New</p>
-            <pre className="whitespace-pre-wrap break-words text-[var(--gov-text)]">{log.newValue ? JSON.stringify(log.newValue, null, 2) : '—'}</pre>
+            <FieldList value={log.newValue} />
           </div>
         </div>
       )}
