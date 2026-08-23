@@ -2,12 +2,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { get, post, patch } from '@/lib/api';
-import { relativeTime, cn, initials } from '@/lib/format';
+import { relativeTime, cn, initials, formatNPR } from '@/lib/format';
 import { toast } from 'sonner';
 import {
   ArrowLeft, MapPin, Clock, Copy, ShieldAlert, CheckCircle2, UserCheck,
   PlayCircle, Loader2, Star, Map as MapIcon, Radio, Plus, ShieldCheck, ShieldQuestion, ThumbsUp, MessageCircle, Send,
-  Camera, RotateCcw, Languages, XCircle, ArrowRightLeft, Siren, ThumbsDown,
+   Camera, RotateCcw, Languages, XCircle, ArrowRightLeft, Siren, ThumbsDown, Building2, Link2, Unlink,
 } from 'lucide-react';
 
 function fileToDataUrl(file) {
@@ -82,6 +82,13 @@ export default function ReportDetailPage() {
 
   const [showDismissDupBox, setShowDismissDupBox] = useState(false);
   const [dismissDupReason, setDismissDupReason] = useState('');
+  
+  const [projectDetail, setProjectDetail] = useState(null);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [projectOptions, setProjectOptions] = useState([]);
+  const [projectQuery, setProjectQuery] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [projectBusy, setProjectBusy] = useState(false);
 
   const [authority, setAuthority] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -102,6 +109,11 @@ export default function ReportDetailPage() {
       .finally(() => setLoading(false));
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  
+  useEffect(() => {
+    if (!report?.project?._id) { setProjectDetail(null); return; }
+    get(`/api/budgets/projects/${report.project._id}`).then(({ project }) => setProjectDetail(project)).catch(() => {});
+  }, [report?.project?._id]);
 
   useEffect(() => {
     if (!report?.assignedDepartment) { setAuthority(null); setReviews([]); return; }
@@ -220,6 +232,29 @@ export default function ReportDetailPage() {
     await act('dismiss-duplicate', { reason: dismissDupReason.trim() }, report.duplicateOf ? 'Marked as a separate issue' : 'Dismissed duplicate suggestion');
     setShowDismissDupBox(false); setDismissDupReason('');
   };
+  
+  const loadProjectOptions = () => {
+    const params = new URLSearchParams();
+    if (report.location?.district) params.set('district', report.location.district);
+    if (report.location?.municipality) params.set('municipality', report.location.municipality);
+    if (report.location?.ward) params.set('ward', report.location.ward);
+    if (projectQuery.trim()) params.set('q', projectQuery.trim());
+    get(`/api/budgets/projects?${params.toString()}`).then(({ projects }) => setProjectOptions(projects || [])).catch(() => toast.error('Could not load projects'));
+  };
+
+  const doLinkProject = async () => {
+    if (!selectedProjectId) { toast.error('Choose a project first'); return; }
+    setProjectBusy(true);
+    await act('link-project', { projectId: selectedProjectId }, 'Linked to project');
+    setProjectBusy(false);
+    setShowProjectPicker(false); setSelectedProjectId('');
+  };
+
+  const doUnlinkProject = async () => {
+    setProjectBusy(true);
+    await act('unlink-project', {}, 'Project link removed');
+    setProjectBusy(false);
+  };
 
   if (loading) return <div className="max-w-[900px] mx-auto space-y-4"><div className="shimmer h-8 w-40 rounded-lg" /><div className="shimmer h-64 rounded-2xl" /></div>;
   if (!report) return <div className="max-w-[900px] mx-auto text-center py-16 text-gray-400">Report not found.</div>;
@@ -333,7 +368,14 @@ export default function ReportDetailPage() {
       {isStaff && (report.possibleDuplicateOf || (report.duplicateOf && report.status === 'duplicate')) && (
         <DuplicateReviewCard report={report} onMerge={doMergeDuplicate} onDismiss={doDismissDuplicate} busy={busy} showDismissBox={showDismissDupBox} setShowDismissBox={setShowDismissDupBox} dismissReason={dismissDupReason} setDismissReason={setDismissDupReason} />
       )}
-
+      <LinkedProjectCard
+        report={report} projectDetail={projectDetail} isStaff={isStaff}
+        showPicker={showProjectPicker} setShowPicker={setShowProjectPicker}
+        projectOptions={projectOptions} loadOptions={loadProjectOptions}
+        projectQuery={projectQuery} setProjectQuery={setProjectQuery}
+        selectedProjectId={selectedProjectId} setSelectedProjectId={setSelectedProjectId}
+        onLink={doLinkProject} onUnlink={doUnlinkProject} busy={projectBusy}
+      />
       {!['rejected', 'duplicate'].includes(report.status) && <LiveTrackingCard report={report} />}
 
       <CommunityCard report={report} commentText={commentText} setCommentText={setCommentText} busy={communityBusy} onSupport={toggleSupport} onComment={submitComment} />
@@ -588,7 +630,69 @@ function DuplicateReviewCard({ report, onMerge, onDismiss, busy, showDismissBox,
     </div>
   );
 }
+function LinkedProjectCard({ report, projectDetail, isStaff, showPicker, setShowPicker, projectOptions, loadOptions, projectQuery, setProjectQuery, selectedProjectId, setSelectedProjectId, onLink, onUnlink, busy }) {
+  const hasProject = Boolean(report.project);
 
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Building2 className="w-4 h-4 text-brand-500" />Linked Project</h3>
+        {isStaff && hasProject && <ActionButton icon={Unlink} label="Unlink" onClick={onUnlink} busy={busy} />}
+        {isStaff && !hasProject && !showPicker && <ActionButton icon={Link2} label="Link to a project" onClick={() => { setShowPicker(true); loadOptions(); }} busy={busy} />}
+      </div>
+
+      {hasProject ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span className="font-medium text-gray-700">{report.location.ward ? `Ward ${report.location.ward}` : 'Ward'}</span>
+            <span>-</span>
+            <span className="font-medium text-gray-700">{report.project.name}</span>
+          </div>
+          <p className="text-xs text-gray-400">{report.project.sector} - <span className="capitalize">{report.project.status}</span></p>
+          {projectDetail ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-gray-50">
+              <MiniStat label="Approved Budget" value={formatNPR(projectDetail.approvedBudget)} />
+              <MiniStat label="Revised Budget" value={projectDetail.revisedBudget != null ? formatNPR(projectDetail.revisedBudget) : 'Not revised'} />
+              <MiniStat label="Expenditure" value={formatNPR(projectDetail.expenditure)} />
+              <MiniStat label="Remaining" value={formatNPR(projectDetail.remaining)} />
+              <div className="col-span-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Physical Progress</p>
+                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full bg-brand-500 rounded-full" style={{ width: `${Math.min(100, projectDetail.physicalProgress)}%` }} />
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">{projectDetail.physicalProgress}% complete</p>
+              </div>
+            </div>
+          ) : (
+            <div className="shimmer h-16 rounded-lg" />
+          )}
+        </div>
+      ) : showPicker ? (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <input value={projectQuery} onChange={e => setProjectQuery(e.target.value)} placeholder="Search projects..." className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand-500" />
+            <button onClick={loadOptions} className="h-9 px-3 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200">Search</button>
+          </div>
+          <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="w-full h-9 px-2 rounded-lg border border-gray-200 text-xs outline-none focus:border-brand-500">
+            <option value="">Select a project...</option>
+            {projectOptions.map(p => <option key={p._id} value={p._id}>{p.name} ({p.sector} - {p.status})</option>)}
+          </select>
+          {projectOptions.length === 0 && <p className="text-xs text-gray-400">No projects found for this ward yet.</p>}
+          <div className="flex gap-2">
+            <button disabled={busy || !selectedProjectId} onClick={onLink} className="h-9 px-3 rounded-lg bg-gray-900 text-white text-xs font-semibold hover:bg-gray-800 disabled:opacity-60">Link project</button>
+            <button onClick={() => setShowPicker(false)} className="h-9 px-3 rounded-lg text-gray-500 text-xs font-semibold hover:bg-gray-50">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400">{isStaff ? 'Not yet linked to a project.' : 'This issue is not yet linked to a government project.'}</p>
+      )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value }) {
+  return <div><p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{label}</p><p className="text-sm font-semibold text-gray-800 mt-0.5">{value}</p></div>;
+}
 function LiveTrackingCard({ report }) {
   const stepIndex = LIVE_STEPS.indexOf(report.status);
   const dueDate = report.dueDate ? new Date(report.dueDate) : null;

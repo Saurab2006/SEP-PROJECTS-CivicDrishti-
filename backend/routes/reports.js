@@ -4,6 +4,7 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Authority = require('../models/Authority');
 const IssueSupport = require('../models/IssueSupport');
+const Project = require('../models/Project');
 const { protect, requireVerified } = require('../middleware/auth');
 const { embedText, bestSemanticMatch, bestSemanticMatchWithScore, classifyFreeText, looksNepali, CROSS_CATEGORY_DUPLICATE_THRESHOLD, SEMANTIC_DUPLICATE_THRESHOLD, POSSIBLE_DUPLICATE_THRESHOLD } = require('../utils/civicAI');
 const { sendSms } = require('../utils/sms');
@@ -370,12 +371,13 @@ router.post('/:id/confirm', protect, async (req, res) => {
 
 router.get('/:id', protect, async (req, res) => {
   try {
-    const report = await IncidentReport.findById(req.params.id)
+      const report = await IncidentReport.findById(req.params.id)
       .populate('reportedBy', 'name email role organization avatarHue verificationStatus')
       .populate('timeline.by', 'name email role avatarHue')
       .populate('comments.user', 'name role avatarHue')
       .populate('duplicateOf', 'title status')
-      .populate('possibleDuplicateOf', 'title status');
+      .populate('possibleDuplicateOf', 'title status')
+      .populate('project', 'name sector status budget revisedBudget spent completionOverride district municipality ward fiscalYear');
     if (!report) return res.status(404).json({ error: 'Report not found' });
     if (req.user.role === 'researcher' && String(report.reportedBy._id) !== String(req.user._id)) return res.status(404).json({ error: 'Report not found' });
     if (req.user.role === 'ward_rep') { const a = req.user.wardRepresentativeApplication || {}; if (report.location?.district !== a.district || String(report.location?.ward || '') !== String(a.ward || '')) return res.status(404).json({ error: 'Report not found' }); }
@@ -479,7 +481,7 @@ router.patch('/:id', protect, async (req, res) => {
       await target.save();
       report.timeline.push({ action: 'marked-duplicate', note: `Merged into "${target.title}"${carriedSimilarity ? ` (${carriedSimilarity}% similarity)` : ''}`, by: req.user._id });
       await Notification.create({ user: report.reportedBy, type: 'duplicate', title: 'Report merged', message: `Your report was merged with an existing one: "${target.title}", which is already being tracked.`, link: `/issues/${target._id}`, report: target._id });
-    } else if (action === 'dismiss-duplicate') {
+    }      else if (action === 'dismiss-duplicate') {
       if (report.duplicateOf) {
         const target = await IncidentReport.findById(report.duplicateOf);
         if (target) { target.confirmations = Math.max(1, (target.confirmations || 1) - 1); await target.save(); }
@@ -497,6 +499,16 @@ router.patch('/:id', protect, async (req, res) => {
       }
       report.duplicateReviewedAt = new Date();
       report.duplicateReviewedBy = req.user._id;
+    } else if (action === 'link-project') {
+      if (!payload.projectId) return res.status(422).json({ error: 'Choose a project to link this issue to' });
+      const project = await Project.findById(payload.projectId);
+      if (!project) return res.status(422).json({ error: 'Project not found' });
+      report.project = project._id;
+      report.timeline.push({ action: 'linked-project', note: `Linked to project "${project.name}"`, by: req.user._id });
+      await notifyReporters(report, { type: 'linked-project', title: 'Your report was linked to a project', message: `"${report.title}" is now connected to the project "${project.name}".` });
+    } else if (action === 'unlink-project') {
+      report.project = null;
+      report.timeline.push({ action: 'unlinked-project', note: payload.reason || 'Removed project link', by: req.user._id });
     } else {
       return res.status(422).json({ error: 'Unknown action' });
     }
@@ -504,11 +516,12 @@ router.patch('/:id', protect, async (req, res) => {
     await report.save();
     res.json({ report: serializeReport(report, req.user._id) });
 
-    const AUDIT_ACTION_MAP = {
+       const AUDIT_ACTION_MAP = {
       assign: 'ASSIGN_AUTHORITY', transfer: 'TRANSFER_REPORT', escalate: 'ESCALATE_REPORT',
       'mark-fake': 'MARK_FAKE', reject: 'REJECT_REPORT', 'mark-duplicate': 'MARK_DUPLICATE',
-      'dismiss-duplicate': 'DISMISS_DUPLICATE',
+      'dismiss-duplicate': 'DISMISS_DUPLICATE', 'link-project': 'LINK_PROJECT', 'unlink-project': 'UNLINK_PROJECT',
     };
+    
     logAudit(req, {
       action: AUDIT_ACTION_MAP[action] || 'CHANGE_REPORT_STATUS',
       targetType: 'IncidentReport',

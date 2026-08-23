@@ -1,6 +1,11 @@
 ﻿const express = require('express');
 const WardUnit = require('../models/WardUnit');
 const User = require('../models/User');
+const Project = require('../models/Project');
+const BudgetItem = require('../models/BudgetItem');
+const IncidentReport = require('../models/IncidentReport');
+const Document = require('../models/Document');
+const Notice = require('../models/Notice');
 const { protect, requireRole } = require('../middleware/auth');
 const { logAudit } = require('../utils/auditLog');
 
@@ -53,5 +58,38 @@ router.get('/representatives/applications', protect, requireRole('admin'), async
     res.json({ applications: users.map(u => u.toPublic()) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+// Ward transparency page: aggregates everything a citizen can see about a
+// specific ward — projects, budget, civic issues, documents, and notices —
+// with reporter identity stripped from issues to protect privacy.
+router.get('/:id/transparency', protect, async (req, res) => {
+  try {
+    const wardUnit = await WardUnit.findById(req.params.id).populate('representative', 'name role');
+    if (!wardUnit) return res.status(404).json({ error: 'Ward not found' });
+    const { district, municipality, ward } = wardUnit;
 
+    const [projects, budgetItems, issues, documents, notices] = await Promise.all([
+      Project.find({ district, municipality, ward }).select('name sector status budget revisedBudget spent completionOverride fiscalYear'),
+      BudgetItem.find({ district, municipality, ward }).select('title department sector amount revisedAmount spent status fiscalYear'),
+      IncidentReport.find({ 'location.district': district, 'location.municipality': municipality, 'location.ward': String(ward) })
+        .select('title category severity status createdAt completedAt supportCount priorityLevel')
+        .sort({ createdAt: -1 }).limit(100),
+      Document.find({ district, municipality }).select('title docType fiscalYear totalBudget summary createdAt'),
+      Notice.find({ active: true, $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] }).select('title message priority audience createdAt').sort({ createdAt: -1 }).limit(20),
+    ]);
+
+    const budgetSummary = budgetItems.reduce((acc, b) => ({
+      allocated: acc.allocated + (b.amount || 0),
+      spent: acc.spent + (b.spent || 0),
+    }), { allocated: 0, spent: 0 });
+
+    res.json({
+      ward: { _id: wardUnit._id, province: wardUnit.province, district, municipality, ward, representativeName: wardUnit.representative?.name || null },
+      projects,
+      budget: { items: budgetItems, summary: { ...budgetSummary, remaining: Math.max(0, budgetSummary.allocated - budgetSummary.spent) } },
+      issues,
+      documents,
+      notices,
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 module.exports = router;

@@ -73,10 +73,13 @@ const incidentReportSchema = new mongoose.Schema({
   reopenCount: { type: Number, default: 0 },
   reopenedAt:  { type: Date },
 
-  assignedDepartment: { type: String, trim: true, default: '' },
+    assignedDepartment: { type: String, trim: true, default: '' },
   assignedContact:    { type: String, trim: true, default: '' },
   assignedBy:          { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
+  // Links this issue to the government project responsible for the area/
+  // work it concerns, so citizens can see Issue -> Ward -> Project -> Budget.
+  project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', default: null },
   isFake:     { type: Boolean, default: false },
   fakeReason: { type: String, trim: true, default: '' },
 

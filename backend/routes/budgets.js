@@ -273,6 +273,48 @@ router.get('/meta/fiscal-years', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Lets an official search for a project to link a civic issue to, scoped to
+// the same ward/municipality/district as the issue so the picker only shows
+// relevant options rather than every project in the system.
+router.get('/projects', protect, async (req, res) => {
+  try {
+    const filter = req.user.role === 'ward_rep' ? {} : { user: req.user._id };
+    if (req.user.role === 'ward_rep') {
+      const a = req.user.wardRepresentativeApplication || {};
+      filter.district = a.district || '__none__';
+      filter.ward = String(a.ward || '__none__');
+    }
+    if (req.query.district) filter.district = req.query.district;
+    if (req.query.municipality) filter.municipality = req.query.municipality;
+    if (req.query.ward) filter.ward = String(req.query.ward);
+    if (req.query.q) filter.name = { $regex: req.query.q, $options: 'i' };
+    const projects = await Project.find(filter).sort({ name: 1 }).limit(100)
+      .select('name sector status budget revisedBudget spent completionOverride province district municipality ward fiscalYear');
+    res.json({ projects });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Full detail for the "Linked Project" card on an issue: approved budget,
+// revised budget, reported expenditure, and physical progress.
+router.get('/projects/:id', protect, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    const approvedBudget = project.budget || 0;
+    const spent = project.spent || 0;
+    res.json({
+      project: {
+        _id: project._id, name: project.name, sector: project.sector, status: project.status,
+        approvedBudget, revisedBudget: project.revisedBudget ?? null, expenditure: spent,
+        remaining: Math.max(0, (project.revisedBudget ?? approvedBudget) - spent),
+        physicalProgress: completionFor(project),
+        province: project.province, district: project.district, municipality: project.municipality, ward: project.ward,
+        fiscalYear: project.fiscalYear,
+      },
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.get('/tracking', protect, async (req, res) => {
   try {
     await syncApprovedCreatedBudgets();
