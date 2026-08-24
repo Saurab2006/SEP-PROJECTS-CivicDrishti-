@@ -117,7 +117,7 @@ export default function SettingsPage() {
       <div><h1 className="text-2xl font-bold text-[#102a2b]">{t('settings.title')}</h1><p className="mt-1 text-sm text-[#65706c]">{t('settings.subtitle')}</p></div>
       <div className="rounded-lg border border-[#ded6c8] bg-white p-6 shadow-sm">
         <div className="mb-6 flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-[#0f3d3e] text-lg font-bold text-white">{initials(user.name)}</div>
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg bg-[#0f3d3e] text-lg font-bold text-white">{user.selfiePhoto ? <img src={user.selfiePhoto} alt="" className="h-full w-full object-cover" /> : initials(user.name)}</div>
           <div>
             <p className="text-lg font-bold text-[#102a2b]">{user.name}</p>
             <p className="text-sm text-[#65706c]">{user.email}</p>

@@ -17,25 +17,15 @@
       "static/css/app/login/page.css",
       "static/chunks/app/login/page.js"
     ],
-    "/(protected)/municipality/dashboard/page": [
+    "/(protected)/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(protected)/municipality/dashboard/page.js"
+      "static/chunks/app/(protected)/dashboard/page.js"
     ],
     "/(protected)/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(protected)/layout.js"
-    ],
-    "/(protected)/budget/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(protected)/budget/page.js"
-    ],
-    "/(protected)/dashboard/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(protected)/dashboard/page.js"
     ],
     "/(protected)/issues/page": [
       "static/chunks/webpack.js",
@@ -43,25 +33,20 @@
       "static/css/app/(protected)/issues/page.css",
       "static/chunks/app/(protected)/issues/page.js"
     ],
-    "/(protected)/admin/audit-logs/page": [
+    "/(protected)/settings/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(protected)/admin/audit-logs/page.js"
+      "static/chunks/app/(protected)/settings/page.js"
     ],
-    "/(protected)/admin/wards/page": [
+    "/(protected)/budget/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(protected)/admin/wards/page.js"
+      "static/chunks/app/(protected)/budget/page.js"
     ],
-    "/(protected)/admin/users/page": [
+    "/(protected)/municipality/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(protected)/admin/users/page.js"
-    ],
-    "/(protected)/authorities/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(protected)/authorities/page.js"
+      "static/chunks/app/(protected)/municipality/dashboard/page.js"
     ]
   }
 }

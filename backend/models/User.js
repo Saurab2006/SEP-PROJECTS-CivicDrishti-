@@ -108,4 +108,13 @@ userSchema.methods.toPublic = function () {
     createdAt: this.createdAt,
   };
 };
+// Same as toPublic(), plus the verification selfie itself. Only ever call
+// this for a user viewing their OWN account (login, signup, /me, settings
+// actions) - never for admin-facing lists of other users (routes/users.js,
+// routes/wards.js, routes/municipalityHeads.js), which must keep using
+// plain toPublic() so a citizen's verification photo never reaches anyone
+// but the citizen it belongs to.
+userSchema.methods.toPublicSelf = function () {
+  return { ...this.toPublic(), selfiePhoto: this.selfiePhoto || '' };
+};
 module.exports = mongoose.model('User', userSchema);

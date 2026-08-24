@@ -12,15 +12,30 @@ export async function loadFaceModels() {
   modelsLoaded = true;
 }
 
+// A citizenship/ID photo often shows the whole card or document, with the
+// person's face taking up only a small part of the frame - unlike a live
+// selfie, where the face fills most of the shot. The detector's default
+// settings are tuned for that selfie case and can miss a small face. We try
+// a few passes, each more sensitive (bigger input size = notices smaller
+// faces, lower score threshold = more lenient about what counts as a face),
+// stopping at the first one that finds something.
+const DETECTOR_ATTEMPTS = [
+  { inputSize: 416, scoreThreshold: 0.5 },
+  { inputSize: 608, scoreThreshold: 0.35 },
+  { inputSize: 800, scoreThreshold: 0.25 },
+];
+
 // Takes an <img> or <video> element, finds the face, and returns its
 // "fingerprint" (128 numbers). Returns null if no face was found.
 export async function getFaceDescriptor(imageOrVideoElement) {
-  const detection = await faceapi
-    .detectSingleFace(imageOrVideoElement, new faceapi.TinyFaceDetectorOptions())
-    .withFaceLandmarks()
-    .withFaceDescriptor();
-  if (!detection) return null;
-  return Array.from(detection.descriptor);
+  for (const { inputSize, scoreThreshold } of DETECTOR_ATTEMPTS) {
+    const detection = await faceapi
+      .detectSingleFace(imageOrVideoElement, new faceapi.TinyFaceDetectorOptions({ inputSize, scoreThreshold }))
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+    if (detection) return Array.from(detection.descriptor);
+  }
+  return null;
 }
 
 // Compares two fingerprints. Returns a distance: lower = more similar.

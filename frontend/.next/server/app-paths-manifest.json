@@ -1,10 +1,7 @@
 {
   "/login/page": "app/login/page.js",
-  "/(protected)/budget/page": "app/(protected)/budget/page.js",
   "/(protected)/dashboard/page": "app/(protected)/dashboard/page.js",
-  "/(protected)/issues/page": "app/(protected)/issues/page.js",
-  "/(protected)/admin/audit-logs/page": "app/(protected)/admin/audit-logs/page.js",
-  "/(protected)/admin/users/page": "app/(protected)/admin/users/page.js",
-  "/(protected)/admin/wards/page": "app/(protected)/admin/wards/page.js",
-  "/(protected)/authorities/page": "app/(protected)/authorities/page.js"
+  "/(protected)/municipality/dashboard/page": "app/(protected)/municipality/dashboard/page.js",
+  "/(protected)/settings/page": "app/(protected)/settings/page.js",
+  "/(protected)/issues/page": "app/(protected)/issues/page.js"
 }

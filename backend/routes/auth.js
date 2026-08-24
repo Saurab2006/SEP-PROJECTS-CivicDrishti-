@@ -43,8 +43,8 @@ router.post('/signup', async (req, res) => {
     otpEmail(user, otp);
     const token = signToken(user);
     await seedForUser(user._id);
-    if (finalRole === 'ward_rep') return res.status(202).json({ user: user.toPublic(), pending: true, message: 'Ward Representative request submitted for admin approval' });
-    res.status(201).json({ user: user.toPublic(), token });
+    if (finalRole === 'ward_rep') return res.status(202).json({ user: user.toPublicSelf(), pending: true, message: 'Ward Representative request submitted for admin approval' });
+    res.status(201).json({ user: user.toPublicSelf(), token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -66,7 +66,7 @@ router.post('/login', async (req, res) => {
 
     const token = signToken(user);
     await seedForUser(user._id);
-    res.json({ user: user.toPublic(), token });
+    res.json({ user: user.toPublicSelf(), token });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -78,13 +78,13 @@ router.post('/verify-email', protect, async (req, res) => {
     const otp = String(req.body?.otp || '').trim();
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    if (user.emailVerified) return res.json({ user: user.toPublic() });
+    if (user.emailVerified) return res.json({ user: user.toPublicSelf() });
     if (!validHash(user.emailOtpHash, otp, user.emailOtpExpires)) return res.status(422).json({ error: 'Invalid or expired verification code' });
     user.emailVerified = true;
     user.emailOtpHash = '';
     user.emailOtpExpires = null;
     await user.save();
-    res.json({ user: user.toPublic() });
+    res.json({ user: user.toPublicSelf() });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -112,7 +112,7 @@ router.post('/verify-identity', protect, async (req, res) => {
     user.verificationStatus = 'verified';
     await user.save();
 
-    res.json({ user: user.toPublic() });
+    res.json({ user: user.toPublicSelf() });
   } catch (err) {
     if (err.code === 11000 && err.keyPattern?.citizenshipNumber) return res.status(409).json({ error: 'This citizenship number is already linked to another account' });
     res.status(500).json({ error: err.message });
@@ -184,13 +184,13 @@ router.patch('/update-location', protect, async (req, res) => {
     user.civicLocation = { ...(user.civicLocation ? user.civicLocation.toObject?.() ?? user.civicLocation : {}), province: province || '', district: district.trim(), municipality: municipality.trim(), ward: String(ward).trim() };
     user.lastAddressChangeAt = new Date();
     await user.save();
-    res.json({ user: user.toPublic() });
+    res.json({ user: user.toPublicSelf() });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // GET /api/auth/me
 router.get('/me', protect, (req, res) => {
-  res.json({ user: req.user.toPublic() });
+  res.json({ user: req.user.toPublicSelf() });
 });
 
 module.exports = router;

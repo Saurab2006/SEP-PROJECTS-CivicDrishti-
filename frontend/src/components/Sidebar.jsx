@@ -105,7 +105,7 @@ export default function Sidebar({ collapsed = false, mobileOpen = false, onMobil
       {user && (
         <div className="border-t border-[#aebdcb] p-4">
           <div className={cn('flex items-center gap-3 rounded-lg bg-white/45 p-3 ring-1 ring-[#aebdcb]', collapsed ? 'justify-center p-2' : '')}>
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#17212b] text-sm font-semibold text-white" title={user.name}>{initials(user.name)}</div>
+            <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[#17212b] text-sm font-semibold text-white" title={user.name}>{user.selfiePhoto ? <img src={user.selfiePhoto} alt="" className="h-full w-full object-cover" /> : initials(user.name)}</div>
             {!collapsed && (
               <>
                 <div className="min-w-0 flex-1">

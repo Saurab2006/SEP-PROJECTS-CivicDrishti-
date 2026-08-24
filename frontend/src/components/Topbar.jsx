@@ -68,7 +68,7 @@ export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMo
           <ThemeToggle className="!h-10 inline-flex" />
           <NotificationBell />
           <div className="hidden items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-2.5 py-1.5 dark:bg-[#0f172a] sm:flex">
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#edf2f7] text-xs font-semibold text-[var(--gov-text)] dark:bg-[#1f2937]">{initials(user.name)}</div>
+            <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-[#edf2f7] text-xs font-semibold text-[var(--gov-text)] dark:bg-[#1f2937]">{user.selfiePhoto ? <img src={user.selfiePhoto} alt="" className="h-full w-full object-cover" /> : initials(user.name)}</div>
             <div className="min-w-0">
               <p className="max-w-[120px] truncate text-sm font-medium leading-5 text-[var(--gov-text)]">{user.name}</p>
               <p className="text-xs font-normal leading-4 text-[var(--gov-subtle)]">{t(roleKey)}</p>
