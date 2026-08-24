@@ -317,9 +317,7 @@ export default function BudgetPage() {
       <div className="gov-card p-5 sm:p-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="gov-label uppercase">Public budget</p>
-            <h1 className="gov-h1 mt-1">Province to ward budget tracking</h1>
-            <p className="gov-body mt-2 max-w-2xl">See exactly where public money is allocated, how much has been spent, and how projects are progressing — from the national total down to your own ward.</p>
+            <h1 className="gov-label uppercase font-bold">Public budget</h1>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             <button onClick={downloadCsv} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-4 text-sm font-medium text-[var(--gov-text)] transition hover:bg-[var(--gov-surface-soft)]"><Download className="h-4 w-4" />Export CSV</button>
@@ -336,12 +334,11 @@ export default function BudgetPage() {
             <article key={card.label} className="gov-card p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="gov-label uppercase">{card.label}</p>
-                  <p className="gov-secondary mt-1">{card.support}</p>
+                  <p className="gov-label uppercase font-bold">{card.label}</p>
                 </div>
                 <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-lg', card.tone)}><Icon className="h-4 w-4" /></span>
               </div>
-              {loading ? <div className="shimmer mt-5 h-8 w-28 rounded-lg bg-[#edf2f7]" /> : <p className="gov-stat mt-5">{card.value}</p>}
+              {loading ? <div className="shimmer mt-5 h-8 w-28 rounded-lg bg-[#edf2f7]" /> : <p className="gov-stat mt-5 font-normal">{card.value}</p>}
             </article>
           );
         })}
@@ -354,8 +351,7 @@ export default function BudgetPage() {
           <div className="flex items-start gap-3">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#fff4f3] text-[var(--gov-primary)]"><AlertTriangle className="h-4 w-4" /></span>
             <div>
-              <p className="gov-label uppercase">Budget variance alerts</p>
-              <h2 className="gov-h3 mt-1">Where spending doesn&rsquo;t match progress on the ground</h2>
+              <h2 className="gov-h3 font-bold">Budget variance alerts</h2>
             </div>
           </div>
           <span className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border border-[var(--gov-border)] px-3 text-xs font-medium text-[var(--gov-text)] hover:bg-[var(--gov-surface-soft)]">{varianceOpen ? 'Hide alerts' : 'Show alerts'}</span>

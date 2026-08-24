@@ -51,8 +51,7 @@ export default function CommunityFeedbackBoard() {
         <div className="flex items-start gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#fff4f3] text-[var(--gov-primary)]"><MessagesSquare className="h-4 w-4" /></span>
           <div>
-            <p className="gov-label uppercase">Community feedback</p>
-            <h2 className="gov-h3 mt-1">What citizens are saying, nationwide</h2>
+            <h2 className="gov-h3 font-bold">Community feedback</h2>
           </div>
         </div>
         <button onClick={() => setOpen(true)} className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[var(--gov-primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--gov-primary-dark)] sm:w-auto">

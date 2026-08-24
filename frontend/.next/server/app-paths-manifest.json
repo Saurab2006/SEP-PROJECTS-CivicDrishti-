@@ -1,6 +1,7 @@
 {
-  "/login/page": "app/login/page.js",
   "/page": "app/page.js",
-  "/(protected)/budget/page": "app/(protected)/budget/page.js",
-  "/(protected)/dashboard/page": "app/(protected)/dashboard/page.js"
+  "/login/page": "app/login/page.js",
+  "/(protected)/dashboard/page": "app/(protected)/dashboard/page.js",
+  "/(protected)/issues/page": "app/(protected)/issues/page.js",
+  "/(protected)/budget/page": "app/(protected)/budget/page.js"
 }
