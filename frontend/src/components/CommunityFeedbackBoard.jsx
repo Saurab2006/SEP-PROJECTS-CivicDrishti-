@@ -6,18 +6,25 @@ import { useNationalFeedback } from '@/lib/useNationalFeedback';
 import {
   PROVINCES, SECTORS, FISCAL_YEARS, FEEDBACK_TYPES,
 } from '@/lib/nationalFeedbackDemoData';
-import { Calendar, Camera, ChevronRight, Loader2, MapPin, MessageSquareText, Search, ShieldCheck, ShieldQuestion, ShieldAlert, SlidersHorizontal, ThumbsDown, ThumbsUp, User, X } from 'lucide-react';
+import { Calendar, Camera, ChevronRight, Loader2, MapPin, MessageSquareText, MessagesSquare, Search, ShieldCheck, ShieldQuestion, ShieldAlert, SlidersHorizontal, ThumbsDown, ThumbsUp, User, X } from 'lucide-react';
+
+const TONE = {
+  success: 'bg-[#eef8f3] text-[var(--gov-success)] ring-[#c8e4d6]',
+  warning: 'bg-[#fff8e8] text-[#8a5a12] ring-[#f3dfb3]',
+  error: 'bg-[#fff4f3] text-[var(--gov-error)] ring-[#f4bbb8]',
+  neutral: 'bg-[#f2f5f8] text-[var(--gov-muted)] ring-[var(--gov-border)]',
+};
 
 const TYPE_META = {
-  yes: { label: 'Yes', icon: ThumbsUp, className: 'border-emerald-300 bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
-  partially: { label: 'Partially', icon: MessageSquareText, className: 'border-amber-300 bg-amber-50 text-amber-700', dot: 'bg-amber-500' },
-  no: { label: 'No', icon: ThumbsDown, className: 'border-red-300 bg-red-50 text-red-700', dot: 'bg-red-500' },
+  yes: { label: 'Yes', icon: ThumbsUp, tone: 'success', dot: 'bg-[var(--gov-success)]' },
+  partially: { label: 'Partially', icon: MessageSquareText, tone: 'warning', dot: 'bg-[#b7791f]' },
+  no: { label: 'No', icon: ThumbsDown, tone: 'error', dot: 'bg-[var(--gov-error)]' },
 };
 
 const VERIFICATION_META = {
-  Verified: { icon: ShieldCheck, className: 'border-emerald-300 bg-emerald-50 text-emerald-700' },
-  'Pending Review': { icon: ShieldQuestion, className: 'border-amber-300 bg-amber-50 text-amber-700' },
-  Unverified: { icon: ShieldAlert, className: 'border-slate-300 bg-slate-50 text-slate-600' },
+  Verified: { icon: ShieldCheck, tone: 'success' },
+  'Pending Review': { icon: ShieldQuestion, tone: 'warning' },
+  Unverified: { icon: ShieldAlert, tone: 'neutral' },
 };
 
 const emptyFilters = { province: '', district: '', municipality: '', ward: '', project: '', sector: '', fiscalYear: '', feedbackType: '', from: '', to: '' };
@@ -39,24 +46,27 @@ export default function CommunityFeedbackBoard() {
   }, [allRows]);
 
   return (
-    <div className="rounded-lg border border-[#ded6c8] bg-white p-4 shadow-sm sm:p-5">
+    <div className="gov-card p-5 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#dc143c]">Community Feedback</p>
-          <h2 className="mt-0.5 text-lg font-medium text-[#102a2b]">What citizens are saying, nationwide</h2>
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#fff4f3] text-[var(--gov-primary)]"><MessagesSquare className="h-4 w-4" /></span>
+          <div>
+            <p className="gov-label uppercase">Community feedback</p>
+            <h2 className="gov-h3 mt-1">What citizens are saying, nationwide</h2>
+          </div>
         </div>
-        <button onClick={() => setOpen(true)} className="flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0f3d3e] px-5 text-sm font-black text-white hover:bg-[#102a2b] sm:w-auto">
-          View All Feedback <ChevronRight className="h-4 w-4" />
+        <button onClick={() => setOpen(true)} className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[var(--gov-primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--gov-primary-dark)] sm:w-auto">
+          View all feedback <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <StatChip label="Total responses" value={stats.total} />
         <StatChip label="Provinces covered" value={stats.provinces.size} />
-        <StatChip label="Positive (Yes)" value={stats.yes} accent="text-emerald-600" />
-        <StatChip label="Concerns (No)" value={stats.no} accent="text-red-600" />
+        <StatChip label="Positive (Yes)" value={stats.yes} accent="text-[var(--gov-success)]" />
+        <StatChip label="Concerns (No)" value={stats.no} accent="text-[var(--gov-error)]" />
       </div>
-      {liveError && <p className="mt-2 text-[11px] text-[#8c8272]">Could not load your community's live feedback right now - showing demo coverage only. Try reopening the board in a moment.</p>}
+      {liveError && <p className="mt-3 text-[11px] text-[var(--gov-subtle)]">Could not load your community's live feedback right now — showing demo coverage only. Try reopening the board in a moment.</p>}
 
       {open && <FeedbackBoardModal onClose={() => setOpen(false)} rows={allRows} liveLoading={liveLoading} />}
     </div>
@@ -65,9 +75,9 @@ export default function CommunityFeedbackBoard() {
 
 function StatChip({ label, value, accent }) {
   return (
-    <div className="rounded-lg border border-[#eee6d8] bg-[#fffaf2] px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-[#8c8272]">{label}</p>
-      <p className={cn('mt-0.5 text-lg font-black tabular-nums', accent || 'text-[#102a2b]')}>{value}</p>
+    <div className="rounded-lg border border-[var(--gov-border)] bg-[var(--gov-surface-soft)] px-3 py-2.5">
+      <p className="gov-label uppercase">{label}</p>
+      <p className={cn('mt-1 text-lg font-semibold tabular-nums', accent || 'text-[var(--gov-text)]')}>{value}</p>
     </div>
   );
 }
@@ -146,32 +156,32 @@ function FeedbackBoardModal({ onClose, rows, liveLoading }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-center overflow-hidden bg-black/40 sm:items-center sm:overflow-y-auto sm:p-4" onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} className="flex h-full w-full max-w-5xl flex-col rounded-none bg-white shadow-xl sm:h-auto sm:max-h-[95vh] sm:rounded-lg">
-        <div className="flex items-start justify-between gap-3 border-b border-[#eee6d8] px-4 py-4 sm:px-6">
+      <div onClick={e => e.stopPropagation()} className="flex h-full w-full max-w-5xl flex-col bg-white shadow-xl sm:h-auto sm:max-h-[95vh] sm:rounded-xl">
+        <div className="flex items-start justify-between gap-3 border-b border-[var(--gov-border)] px-4 py-4 sm:px-6">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#dc143c]">Community Feedback · All 7 provinces</p>
-            <h3 className="mt-0.5 text-base font-black text-[#102a2b]">National feedback board</h3>
+            <p className="gov-label uppercase">Community feedback · All 7 provinces</p>
+            <h3 className="gov-h3 mt-1">National feedback board</h3>
           </div>
-          <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-[#8c8272] hover:bg-[#fffaf2]"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-[var(--gov-subtle)] hover:bg-[var(--gov-surface-soft)]"><X className="h-4 w-4" /></button>
         </div>
 
-        <div className="max-h-[46vh] overflow-y-auto border-b border-[#eee6d8] px-4 py-3 sm:max-h-none sm:overflow-visible sm:px-6">
+        <div className="max-h-[46vh] overflow-y-auto border-b border-[var(--gov-border)] px-4 py-3 sm:max-h-none sm:overflow-visible sm:px-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c8272]" />
-              <input value={q} onChange={e => { setQ(e.target.value); setPage(1); }} placeholder="Search by citizen, project, ward, or comment..." className="h-10 w-full rounded-lg border border-[#ded6c8] pl-9 pr-3 text-sm outline-none focus:border-[#0f3d3e]" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--gov-subtle)]" />
+              <input value={q} onChange={e => { setQ(e.target.value); setPage(1); }} placeholder="Search by citizen, project, ward, or comment..." className="h-10 w-full rounded-lg border border-[var(--gov-border)] pl-9 pr-3 text-sm outline-none focus:border-[var(--gov-primary)]" />
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setShowFilters(v => !v)} className={cn('flex h-10 flex-1 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium sm:flex-none', showFilters ? 'border-[#0f3d3e] bg-[#eef6f4] text-[#0f3d3e]' : 'border-[#ded6c8] text-[#65706c] hover:bg-[#fffaf2]')}>
+              <button type="button" onClick={() => setShowFilters(v => !v)} className={cn('flex h-10 flex-1 shrink-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-medium sm:flex-none', showFilters ? 'border-[var(--gov-primary)] bg-[#fff4f3] text-[var(--gov-primary)]' : 'border-[var(--gov-border)] text-[var(--gov-muted)] hover:bg-[var(--gov-surface-soft)]')}>
                 <SlidersHorizontal className="h-4 w-4" />Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
               </button>
-              {(activeFilterCount > 0 || q) && <button type="button" onClick={resetAll} className="h-10 shrink-0 rounded-lg px-3 text-sm font-medium text-[#dc143c] hover:bg-[#fff4f3]">Reset</button>}
+              {(activeFilterCount > 0 || q) && <button type="button" onClick={resetAll} className="h-10 shrink-0 rounded-lg px-3 text-sm font-medium text-[var(--gov-primary)] hover:bg-[#fff4f3]">Reset</button>}
             </div>
           </div>
 
           {showFilters && (
             <div className="mt-3 space-y-2">
-              <p className="text-[11px] font-black uppercase tracking-wide text-[#8c8272]">Location: Province → District → Municipality → Ward</p>
+              <p className="gov-label uppercase">Location: Province → District → Municipality → Ward</p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <FilterSelect label="Province" value={filters.province} onChange={v => setFilter('province', v)} options={PROVINCES} />
                 <FilterSelect label="District" value={filters.district} onChange={v => setFilter('district', v)} options={districts} disabled={!filters.province} />
@@ -184,12 +194,12 @@ function FeedbackBoardModal({ onClose, rows, liveLoading }) {
                 <FilterSelect label="Fiscal year" value={filters.fiscalYear} onChange={v => setFilter('fiscalYear', v)} options={FISCAL_YEARS} />
                 <FilterSelect label="Feedback type" value={filters.feedbackType} onChange={v => setFilter('feedbackType', v)} options={FEEDBACK_TYPES.map(t => t.value)} labels={Object.fromEntries(FEEDBACK_TYPES.map(t => [t.value, t.label]))} />
                 <div className="grid grid-cols-2 gap-1">
-                  <label className="block"><span className="mb-1 block text-[10px] uppercase tracking-wide text-[#8c8272]">From</span><input type="date" value={filters.from} onChange={e => setFilter('from', e.target.value)} className="h-9 w-full rounded-lg border border-[#ded6c8] px-1.5 text-xs outline-none focus:border-[#0f3d3e]" /></label>
-                  <label className="block"><span className="mb-1 block text-[10px] uppercase tracking-wide text-[#8c8272]">To</span><input type="date" value={filters.to} onChange={e => setFilter('to', e.target.value)} className="h-9 w-full rounded-lg border border-[#ded6c8] px-1.5 text-xs outline-none focus:border-[#0f3d3e]" /></label>
+                  <label className="block"><span className="mb-1 block text-[10px] uppercase tracking-wide text-[var(--gov-subtle)]">From</span><input type="date" value={filters.from} onChange={e => setFilter('from', e.target.value)} className="h-9 w-full rounded-lg border border-[var(--gov-border)] px-1.5 text-xs outline-none focus:border-[var(--gov-primary)]" /></label>
+                  <label className="block"><span className="mb-1 block text-[10px] uppercase tracking-wide text-[var(--gov-subtle)]">To</span><input type="date" value={filters.to} onChange={e => setFilter('to', e.target.value)} className="h-9 w-full rounded-lg border border-[var(--gov-border)] px-1.5 text-xs outline-none focus:border-[var(--gov-primary)]" /></label>
                 </div>
               </div>
               {(filters.province || filters.district || filters.municipality || filters.ward) && (
-                <p className="flex items-center gap-1 text-xs text-[#0f3d3e]"><MapPin className="h-3.5 w-3.5 shrink-0" />
+                <p className="flex items-center gap-1 text-xs text-[var(--gov-primary)]"><MapPin className="h-3.5 w-3.5 shrink-0" />
                   <span className="break-words">Showing: {[filters.province, filters.district, filters.municipality, filters.ward && `Ward ${filters.ward}`].filter(Boolean).join(' → ')}</span>
                 </p>
               )}
@@ -197,13 +207,13 @@ function FeedbackBoardModal({ onClose, rows, liveLoading }) {
           )}
 
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="flex items-center gap-1.5 text-xs text-[#65706c]">
+            <p className="flex items-center gap-1.5 text-xs text-[var(--gov-muted)]">
               {liveLoading && <Loader2 className="h-3 w-3 animate-spin" />}
               {filtered.length} matching feedback {filtered.length === 1 ? 'entry' : 'entries'}
             </p>
-            <label className="flex items-center gap-2 text-xs text-[#65706c]">
+            <label className="flex items-center gap-2 text-xs text-[var(--gov-muted)]">
               Sort by
-              <select value={sort} onChange={e => setSort(e.target.value)} className="h-9 flex-1 rounded-lg border border-[#ded6c8] px-2 text-xs outline-none focus:border-[#0f3d3e] sm:flex-none">
+              <select value={sort} onChange={e => setSort(e.target.value)} className="h-9 flex-1 rounded-lg border border-[var(--gov-border)] px-2 text-xs outline-none focus:border-[var(--gov-primary)] sm:flex-none">
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
                 <option value="verification">Verification status</option>
@@ -215,13 +225,13 @@ function FeedbackBoardModal({ onClose, rows, liveLoading }) {
 
         <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           {visible.length === 0 ? (
-            <p className="rounded-lg bg-[#f8fbfd] p-6 text-center text-sm text-[#65706c]">No feedback matches these filters. Try widening your search.</p>
+            <p className="rounded-lg bg-[var(--gov-surface-soft)] p-6 text-center text-sm text-[var(--gov-muted)]">No feedback matches these filters. Try widening your search.</p>
           ) : (
             <div className="space-y-2.5">{visible.map(row => <NationalFeedbackCard key={row.id} row={row} />)}</div>
           )}
         </div>
 
-        <div className="border-t border-[#eee6d8] p-3 sm:p-4">
+        <div className="border-t border-[var(--gov-border)] p-3 sm:p-4">
           <Pagination page={safePage} limit={limit} total={filtered.length} onPageChange={setPage} onLimitChange={v => { setLimit(v); setPage(1); }} pageSizeOptions={[10, 20, 50]} label="feedback entries" />
         </div>
       </div>
@@ -232,8 +242,8 @@ function FeedbackBoardModal({ onClose, rows, liveLoading }) {
 function FilterSelect({ label, value, onChange, options, disabled, prefix = '', labels }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] uppercase tracking-wide text-[#8c8272]">{label}</span>
-      <select disabled={disabled} value={value} onChange={e => onChange(e.target.value)} className="h-9 w-full rounded-lg border border-[#ded6c8] px-2 text-xs outline-none focus:border-[#0f3d3e] disabled:cursor-not-allowed disabled:bg-[#f7f2ea] disabled:text-[#b8ad9b]">
+      <span className="mb-1 block text-[10px] uppercase tracking-wide text-[var(--gov-subtle)]">{label}</span>
+      <select disabled={disabled} value={value} onChange={e => onChange(e.target.value)} className="h-9 w-full rounded-lg border border-[var(--gov-border)] px-2 text-xs outline-none focus:border-[var(--gov-primary)] disabled:cursor-not-allowed disabled:bg-[var(--gov-surface-soft)] disabled:text-[var(--gov-subtle)]">
         <option value="">All</option>
         {options.map(opt => <option key={opt} value={opt}>{prefix}{(labels && labels[opt]) || opt}</option>)}
       </select>
@@ -249,43 +259,44 @@ function NationalFeedbackCard({ row }) {
   const displayName = row.isAnonymous ? 'Anonymous Citizen' : row.citizenName;
 
   return (
-    <div className="rounded-lg border border-[#eee6d8] bg-white p-3.5">
+    <div className="rounded-lg border border-[var(--gov-border)] bg-white p-3.5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#eef6f4] text-[10px] font-black text-[#0f3d3e]">{row.isAnonymous ? <User className="h-3.5 w-3.5" /> : (initials(displayName) || <User className="h-3.5 w-3.5" />)}</span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#fff4f3] text-[10px] font-semibold text-[var(--gov-primary)]">{row.isAnonymous ? <User className="h-3.5 w-3.5" /> : (initials(displayName) || <User className="h-3.5 w-3.5" />)}</span>
           <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-1 text-xs font-black text-[#102a2b]">
+            <p className="flex flex-wrap items-center gap-1 text-xs font-semibold text-[var(--gov-text)]">
               {displayName}
               {row.isDemo
-                ? <span className="font-normal text-[#8c8272]">· Demo feedback</span>
-                : <span className="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-700">Live</span>}
+                ? <span className="font-normal text-[var(--gov-subtle)]">· Demo feedback</span>
+                : <span className="rounded-md bg-[#eef8f3] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--gov-success)]">Live</span>}
             </p>
-            <p className="flex flex-wrap items-center gap-x-1 text-[11px] text-[#8c8272]"><MapPin className="h-2.5 w-2.5 shrink-0" />{row.province} → {row.district} → {row.municipality} → Ward {row.ward}</p>
+            <p className="flex flex-wrap items-center gap-x-1 text-[11px] text-[var(--gov-subtle)]"><MapPin className="h-2.5 w-2.5 shrink-0" />{row.province} → {row.district} → {row.municipality} → Ward {row.ward}</p>
             {!row.isDemo && row.registeredWard && row.registeredWard !== row.ward && (
-              <p className="text-[10px] text-[#b8ad9b]">Citizen's registered ward: Ward {row.registeredWard}</p>
+              <p className="text-[10px] text-[var(--gov-subtle)]">Citizen's registered ward: Ward {row.registeredWard}</p>
             )}
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-          <span className={cn('flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide', type.className)}><TypeIcon className="h-3 w-3" />{type.label}</span>
-          <span className={cn('flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide', verification.className)}><VerifyIcon className="h-3 w-3" />{row.verificationStatus}</span>
+          <span className={cn('flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset', TONE[type.tone])}><TypeIcon className="h-3 w-3" />{type.label}</span>
+          <span className={cn('flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ring-inset', TONE[verification.tone])}><VerifyIcon className="h-3 w-3" />{row.verificationStatus}</span>
         </div>
       </div>
 
-      <p className="mt-2 text-xs font-medium text-[#0f3d3e]">{row.project}</p>
-      <p className="mt-0.5 text-[11px] text-[#8c8272]">{row.sector} · FY {row.fiscalYear}</p>
-      {row.comment && <p className="mt-1.5 text-xs leading-relaxed text-[#65706c]">{row.comment}</p>}
+      <p className="mt-2 text-xs font-medium text-[var(--gov-primary)]">{row.project}</p>
+      <p className="mt-0.5 text-[11px] text-[var(--gov-subtle)]">{row.sector} · FY {row.fiscalYear}</p>
+      {row.comment && <p className="mt-1.5 text-xs leading-relaxed text-[var(--gov-muted)]">{row.comment}</p>}
 
       {!row.isDemo && row.photoUrl && (
-        <img src={row.photoUrl} alt="Citizen submitted evidence" className="mt-2 h-28 w-full rounded-lg border border-[#eee6d8] object-cover" />
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={row.photoUrl} alt="Citizen submitted evidence" className="mt-2 h-28 w-full rounded-lg border border-[var(--gov-border)] object-cover" />
       )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-[#8c8272]">
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-[var(--gov-subtle)]">
         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(row.date)}{!row.isDemo ? ` · ${relativeTime(row.date)}` : ''}</span>
         {row.isDemo && row.hasPhoto && (
           <span className="flex items-center gap-1.5">
             <Camera className="h-3 w-3" />Photo attached
-            <span className="h-4 w-6 rounded border border-[#eee6d8]" style={{ backgroundColor: row.photoColor }} title="Demo photo placeholder" />
+            <span className="h-4 w-6 rounded border border-[var(--gov-border)]" style={{ backgroundColor: row.photoColor }} title="Demo photo placeholder" />
           </span>
         )}
       </div>
