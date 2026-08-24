@@ -1,9 +1,14 @@
 {
+  "/page": "app/page.js",
   "/login/page": "app/login/page.js",
   "/(protected)/dashboard/page": "app/(protected)/dashboard/page.js",
   "/(protected)/issues/page": "app/(protected)/issues/page.js",
+<<<<<<< HEAD
   "/(protected)/authorities/page": "app/(protected)/authorities/page.js",
   "/(protected)/wards/page": "app/(protected)/wards/page.js",
   "/(protected)/issues/[id]/page": "app/(protected)/issues/[id]/page.js",
   "/(protected)/admin/audit-logs/page": "app/(protected)/admin/audit-logs/page.js"
+=======
+  "/(protected)/budget/page": "app/(protected)/budget/page.js"
+>>>>>>> 9eb4e66477026f10ecb777b589c490baabefffd9
 }

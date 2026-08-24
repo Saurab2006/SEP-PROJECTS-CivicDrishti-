@@ -36,11 +36,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! next/dist/build/webpack/loaders/next-flight-loader/module-proxy */ "(rsc)/../node_modules/next/dist/build/webpack/loaders/next-flight-loader/module-proxy.js");
 
 
-const e0 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`C:\Users\Panas Koirala\OneDrive\Desktop\Civicदृष्टि\SEP-PROJECTS-CivicDrishti-\node_modules\sonner\dist\index.mjs#Toaster`);
+const e0 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`E:\SEP-PROJECTS-CivicDrishti-\node_modules\sonner\dist\index.mjs#Toaster`);
 
-const e1 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`C:\Users\Panas Koirala\OneDrive\Desktop\Civicदृष्टि\SEP-PROJECTS-CivicDrishti-\node_modules\sonner\dist\index.mjs#toast`);
+const e1 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`E:\SEP-PROJECTS-CivicDrishti-\node_modules\sonner\dist\index.mjs#toast`);
 
-const e2 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`C:\Users\Panas Koirala\OneDrive\Desktop\Civicदृष्टि\SEP-PROJECTS-CivicDrishti-\node_modules\sonner\dist\index.mjs#useSonner`);
+const e2 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`E:\SEP-PROJECTS-CivicDrishti-\node_modules\sonner\dist\index.mjs#useSonner`);
 
 
 /***/ })
