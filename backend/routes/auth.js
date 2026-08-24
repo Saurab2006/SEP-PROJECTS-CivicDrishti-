@@ -7,18 +7,25 @@ const { code, hashCode, expires, validHash, welcomeEmail, otpEmail, resetEmail }
 
 const router = express.Router();
 
+// Ward must be a positive whole number when provided. Empty string is allowed
+// here (route-level required-ness is checked separately per endpoint).
+const isValidWard = (v) => v === undefined || v === null || v === '' || /^[1-9]\d*$/.test(String(v).trim());
+
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
   try {
     const { name, email, password, role, organization, citizenshipDoc, citizenshipDocName, province, district, municipality, ward, applicationDetails } = req.body;
     if (!name || !email || !password) return res.status(422).json({ error: 'Name, email and password are required' });
     if (password.length < 6) return res.status(422).json({ error: 'Password must be at least 6 characters' });
+    if (!isValidWard(ward)) return res.status(422).json({ error: 'Ward must be a positive whole number' });
 
     const exists = await User.findOne({ email: email.toLowerCase().trim() });
     if (exists) return res.status(409).json({ error: 'An account with this email already exists' });
 
     const isFirst = (await User.countDocuments()) === 0;
     const finalRole = role === 'ward_rep' ? 'ward_rep' : (isFirst ? 'admin' : 'researcher');
+
+    if (finalRole === 'ward_rep' && !ward) return res.status(422).json({ error: 'Ward is required for Ward Representative applications' });
 
     // Identity verification can be completed later from Settings before sensitive citizen actions.
 
@@ -170,6 +177,7 @@ router.patch('/update-location', protect, async (req, res) => {
   try {
     const { province, district, municipality, ward } = req.body;
     if (!district || !municipality || !ward) return res.status(422).json({ error: 'District, municipality and ward are required' });
+    if (!isValidWard(ward)) return res.status(422).json({ error: 'Ward must be a positive whole number' });
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ error: 'User not found' });

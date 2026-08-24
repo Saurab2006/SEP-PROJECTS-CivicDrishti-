@@ -55,7 +55,31 @@ export default function SignupPage() {
           <div className={styles.roleSelect}>{ROLE_CARDS.map(card => <button key={card.value} type="button" onClick={() => setValue('role', card.value)} className={`${styles.roleCard} ${role === card.value ? styles.roleCardActive : ''}`}><span className={styles.roleCardTitle}><UserRoundCheck className="h-4 w-4" style={{ color: 'var(--sindoor)' }} />{card.title}</span><span className={styles.roleCardCopy}>{card.copy}</span></button>)}</div>
           <input type="hidden" {...register('role')} />
         </div>
-        <div className={styles.jurisdictionBox}><p className={styles.jurisdictionTitle}><MapPinned className="h-4 w-4" style={{ color: 'var(--sindoor)' }} />Jurisdiction {role === 'ward_rep' ? '(required for Ward Representative)' : ''}</p><div className={styles.rowFour}><input className={styles.input} placeholder="Province" {...register('province', { required: role === 'ward_rep' ? 'Province is required' : false })} /><input className={styles.input} placeholder="District" {...register('district', { required: role === 'ward_rep' ? 'District is required' : false })} /><input className={styles.input} placeholder="Municipality" {...register('municipality')} /><input className={styles.input} placeholder="Ward" {...register('ward', { required: role === 'ward_rep' ? 'Ward is required' : false })} /></div>{role === 'ward_rep' && <textarea className={styles.input} style={{ minHeight: 92, marginTop: 10, paddingTop: 10 }} placeholder="Why should the main admin approve you as this ward representative?" {...register('applicationDetails', { required: 'Application details are required for ward representatives' })} />}</div>
+        <div className={styles.jurisdictionBox}>
+          <p className={styles.jurisdictionTitle}><MapPinned className="h-4 w-4" style={{ color: 'var(--sindoor)' }} />Jurisdiction {role === 'ward_rep' ? '(required for Ward Representative)' : ''}</p>
+          <div className={styles.rowFour}>
+            <input className={styles.input} placeholder="Province" {...register('province', { required: role === 'ward_rep' ? 'Province is required' : false })} />
+            <input className={styles.input} placeholder="District" {...register('district', { required: role === 'ward_rep' ? 'District is required' : false })} />
+            <input className={styles.input} placeholder="Municipality" {...register('municipality')} />
+            <input
+              type="number"
+              min="1"
+              step="1"
+              className={styles.input}
+              placeholder="Ward"
+              {...register('ward', {
+                required: role === 'ward_rep' ? 'Ward is required' : false,
+                valueAsNumber: true,
+                validate: (v) => {
+                  if (v === undefined || v === '' || Number.isNaN(v)) return true;
+                  return (Number.isInteger(v) && v > 0) || 'Ward must be a positive whole number';
+                }
+              })}
+            />
+          </div>
+          {errors.ward && <span className={styles.errMsg}>{errors.ward.message}</span>}
+          {role === 'ward_rep' && <textarea className={styles.input} style={{ minHeight: 92, marginTop: 10, paddingTop: 10 }} placeholder="Why should the main admin approve you as this ward representative?" {...register('applicationDetails', { required: 'Application details are required for ward representatives' })} />}
+        </div>
         <div className={styles.rowTwo}>
           <div><label className={styles.label}>Password <span className={styles.labelNp}>पासवर्ड</span></label><div className={styles.inputWrap}><input type={showPw ? 'text' : 'password'} className={`${styles.input} ${errors.password ? styles.inputError : ''}`} style={{ paddingRight: 40 }} placeholder="Min 6 characters" {...register('password', { required: 'Required', minLength: { value: 6, message: 'Min 6 characters' } })} /><button type="button" onClick={() => setShowPw(v => !v)} className={styles.inputIconBtn}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>{errors.password && <span className={styles.errMsg}>{errors.password.message}</span>}</div>
           <div><label className={styles.label}>Confirm password <span className={styles.labelNp}>पासवर्ड पुष्टि</span></label><input type="password" className={`${styles.input} ${errors.confirmPassword ? styles.inputError : ''}`} placeholder="Re-enter password" {...register('confirmPassword', { validate: v => v === watch('password') || "Passwords don't match" })} />{errors.confirmPassword && <span className={styles.errMsg}>{errors.confirmPassword.message}</span>}</div>

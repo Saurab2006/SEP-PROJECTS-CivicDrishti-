@@ -2,6 +2,16 @@
 const bcrypt = require('bcryptjs');
 const { randomAvatarHue } = require('../utils/avatarHue');
 
+// Ward must be a positive whole number (no negatives, no zero, no decimals).
+// Stored as String, so we validate the string pattern rather than a numeric min.
+const wardValidator = {
+  validator: function (v) {
+    if (v === '' || v === null || v === undefined) return true; // let `required` (where applicable) handle empty
+    return /^[1-9]\d*$/.test(v);
+  },
+  message: 'Ward must be a positive whole number',
+};
+
 const userSchema = new mongoose.Schema({
   name:         { type: String, required: true, trim: true },
   email:        { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -27,7 +37,7 @@ const userSchema = new mongoose.Schema({
     district: { type: String, default: '', trim: true },
     municipality: { type: String, default: '', trim: true },
     municipalityType: { type: String, enum: ['', 'municipality', 'rural_municipality', 'metropolitan', 'sub_metropolitan'], default: '' },
-    ward: { type: String, default: '', trim: true },
+    ward: { type: String, default: '', trim: true, validate: wardValidator },
     address: { type: String, default: '', trim: true },
   },
 
@@ -61,7 +71,7 @@ const userSchema = new mongoose.Schema({
     province: { type: String, default: '' },
     district: { type: String, default: '' },
     municipality: { type: String, default: '' },
-    ward: { type: String, default: '' },
+    ward: { type: String, default: '', validate: wardValidator },
     details: { type: String, default: '' },
     document: { type: String, default: '' },
     documentName: { type: String, default: '' },
