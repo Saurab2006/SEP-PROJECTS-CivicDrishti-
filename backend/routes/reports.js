@@ -162,7 +162,7 @@ router.get('/stats', protect, async (req, res) => {
 
 router.get('/', protect, async (req, res) => {
   try {
-    const { status = 'all', category = 'all', district = '', mine, flagged } = req.query;
+    const { status = 'all', category = 'all', district = '', mine, flagged, possibleDuplicate } = req.query;
     const filter = {};
     if (req.user.role === 'researcher' || mine === 'true') filter.reportedBy = req.user._id;
     if (req.user.role === 'ward_rep') { const a = req.user.wardRepresentativeApplication || {}; filter['location.district'] = a.district || '__none__'; filter['location.ward'] = String(a.ward || '__none__'); }
@@ -170,6 +170,7 @@ router.get('/', protect, async (req, res) => {
     if (category !== 'all') filter.category = category;
     if (district) filter['location.district'] = new RegExp(district, 'i');
     if (flagged === 'true') filter.isFake = true;
+    if (possibleDuplicate === 'true') filter.possibleDuplicateOf = { $ne: null };
     // The list view only needs card/summary fields - it never renders the full
     // timeline, comment thread, embedding vector, or resolution photo, so we
     // leave those out here (and skip populating their nested refs) to keep
@@ -179,6 +180,7 @@ router.get('/', protect, async (req, res) => {
       .select('-embedding -timeline -comments -resolutionPhoto -resolutionPhotoName -translatedDescription')
       .populate('reportedBy', 'name email role organization avatarHue verificationStatus')
       .populate('duplicateOf', 'title status location')
+      .populate('possibleDuplicateOf', 'title status location')
       .lean();
     res.json({ reports: items.map(r => serializeReport(r, req.user._id)) });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -475,6 +477,16 @@ router.patch('/:id', protect, async (req, res) => {
       if (!targetId) return res.status(422).json({ error: 'Pick a valid original report' });
       const target = await IncidentReport.findById(targetId);
       if (!target || String(target._id) === String(report._id)) return res.status(422).json({ error: 'Pick a valid original report' });
+      if (req.user.role === 'ward_rep') {
+        const a = req.user.wardRepresentativeApplication || {};
+        const inOwnWard = (loc) => !!loc && loc.district === a.district && String(loc.ward || '') === String(a.ward || '');
+        if (!inOwnWard(report.location) || !inOwnWard(target.location)) {
+          return res.status(403).json({ error: 'Ward representatives can only merge reports within their assigned ward' });
+        }
+        if (!report.possibleDuplicateOf || String(report.possibleDuplicateOf) !== String(target._id)) {
+          return res.status(403).json({ error: 'Ward representatives can only merge reports already flagged as possible duplicates' });
+        }
+      }
       const carriedSimilarity = report.possibleDuplicateOf && String(report.possibleDuplicateOf) === String(target._id) ? report.possibleDuplicateSimilarity : null;
       report.duplicateOf = target._id;
       report.duplicateSimilarity = carriedSimilarity;
