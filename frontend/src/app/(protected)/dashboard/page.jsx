@@ -1,11 +1,12 @@
 ﻿'use client';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { get } from '@/lib/api';
+import { get, patch } from '@/lib/api';
 import { formatNPR, formatNumber, cn } from '@/lib/format';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { AlertCircle, ArrowRight, Building2, CheckCircle2, Clock3, FileText, Landmark, MapPin, MapPinned, ShieldCheck, Table2, WalletCards } from 'lucide-react';
+import { AlertCircle, ArrowRight, Building2, CheckCircle2, Clock3, Copy, FileText, Landmark, MapPin, MapPinned, ShieldCheck, WalletCards } from 'lucide-react';
+import { toast } from 'sonner';
 
 const STATUS_TONE = {
   pending: 'bg-[#fff8e8] text-[#8a5a12] ring-[#f3dfb3]',
@@ -44,6 +45,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [myWardBudget, setMyWardBudget] = useState(null);
   const [myWardLoading, setMyWardLoading] = useState(true);
+  const [possibleDuplicates, setPossibleDuplicates] = useState([]);
+  const [duplicatesLoading, setDuplicatesLoading] = useState(true);
+  const [mergingId, setMergingId] = useState(null);
 
   useEffect(() => {
     Promise.all([
@@ -57,6 +61,24 @@ export default function DashboardPage() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (user?.role !== 'ward_rep') { setDuplicatesLoading(false); return; }
+    setDuplicatesLoading(true);
+    get('/api/reports?possibleDuplicate=true').then((res) => {
+      setPossibleDuplicates(res?.reports || []);
+    }).catch(() => setPossibleDuplicates([])).finally(() => setDuplicatesLoading(false));
+  }, [user?.role]);
+
+  const mergeDuplicate = async (report) => {
+    setMergingId(report._id);
+    try {
+      await patch(`/api/reports/${report._id}`, { action: 'mark-duplicate' });
+      toast.success(`Merged into "${report.possibleDuplicateOf?.title || 'the original report'}"`);
+      setPossibleDuplicates((list) => list.filter((r) => r._id !== report._id));
+    } catch (err) { toast.error(err.message); }
+    setMergingId(null);
+  };
 
   const myProvince = user?.civicLocation?.province || '';
   const myDistrict = user?.civicLocation?.district || '';
@@ -122,18 +144,6 @@ export default function DashboardPage() {
     { title: t('dashboard.publicBudget'), value: formatNPR(totalBudget), support: `${budgetUsed}% ${t('dashboard.publicBudgetSub')}`, icon: WalletCards, tone: 'text-[var(--gov-primary)] bg-[#fff4f3]' },
   ];
 
-  const activity = useMemo(() => {
-    const latest = reports.slice(0, 3).map((r) => ({
-      id: r._id,
-      title: r.status ? `${statusText(r.status)}: ${r.title}` : `${t('status.updated')}: ${r.title}`,
-      meta: `${dateLabel(r.updatedAt || r.createdAt, t)} · ${r.assignedAuthority?.name || r.authority?.name || t('dashboard.notAssigned')}`,
-      icon: r.status === 'completed' ? CheckCircle2 : r.status === 'assigned' ? Building2 : r.status === 'verified' ? ShieldCheck : AlertCircle,
-    }));
-    return latest.length ? latest : [
-      { id: 'empty-1', title: t('dashboard.noActivity'), meta: t('dashboard.noActivitySub'), icon: Clock3 },
-    ];
-  }, [reports, t]);
-
   const showWardCard = ['researcher', 'ward_rep'].includes(user?.role);
 
   return (
@@ -150,7 +160,48 @@ export default function DashboardPage() {
         />
       )}
 
-      <section className="grid gap-4 lg:grid-cols-[1.5fr_0.9fr]">
+      {user?.role === 'ward_rep' && (
+        <section className="gov-card p-5 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="gov-h2">Possible duplicates in your ward</h2>
+            </div>
+          </div>
+
+          {duplicatesLoading ? (
+            <div className="mt-5 space-y-3">
+              {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
+            </div>
+          ) : !possibleDuplicates.length ? (
+            <div className="mt-6 py-8 text-center">
+              <Copy className="mx-auto h-8 w-8 text-[var(--gov-bluegray)]" />
+              <p className="gov-secondary mt-2">No possible duplicates flagged right now.</p>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              {possibleDuplicates.map((r) => (
+                <div key={r._id} className="flex flex-col gap-3 rounded-lg border border-[var(--gov-border)] p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <Link href={`/issues/${r._id}`} className="text-sm font-medium text-[var(--gov-text)] hover:text-[var(--gov-primary)]">{r.title}</Link>
+                    <p className="gov-secondary mt-1">
+                      Possibly the same as <span className="font-medium text-[var(--gov-text)]">{r.possibleDuplicateOf?.title || 'another report'}</span>
+                      {r.possibleDuplicateSimilarity != null ? ` · ${r.possibleDuplicateSimilarity}% similarity` : ''}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Link href={`/issues/${r._id}`} className="inline-flex h-9 items-center rounded-lg border border-[var(--gov-border)] px-3 text-xs font-medium text-[var(--gov-muted)] hover:bg-[#f6f8fb]">Review</Link>
+                    <button type="button" onClick={() => mergeDuplicate(r)} disabled={mergingId === r._id} className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--gov-primary)] px-3 text-xs font-medium text-white hover:bg-[var(--gov-primary-dark)] disabled:opacity-60">
+                      <Copy className="h-3.5 w-3.5" />{mergingId === r._id ? 'Merging...' : 'Merge'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="grid gap-4">
         <div className="gov-card p-5 sm:p-7">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -170,24 +221,6 @@ export default function DashboardPage() {
             </div>
           )}
           <HeroMapPreview reports={reports} loading={loading} t={t} />
-        </div>
-
-        <div className="gov-card p-5 sm:p-6">
-          <p className="gov-label uppercase">{t('dashboard.budgetUse')}</p>
-          <div className="mt-4 flex items-end justify-between gap-4">
-            <div>
-              <p className="gov-stat">{budgetUsed}%</p>
-              <p className="gov-secondary mt-1">{t('dashboard.usedAllocation')}</p>
-            </div>
-            <Table2 className="h-9 w-9 text-[var(--gov-primary)]" />
-          </div>
-          <BudgetProgress percent={budgetUsed} />
-          <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-            <BudgetMini label={t('dashboard.allocated')} value={formatNPR(totalBudget)} />
-            <BudgetMini label={t('dashboard.spent')} value={formatNPR(spentBudget)} />
-            <BudgetMini label={t('dashboard.remaining')} value={formatNPR(remainingBudget)} />
-            <BudgetMini label={t('dashboard.activeWork')} value={formatNumber(k.activeProjects || pendingReports)} />
-          </div>
         </div>
       </section>
 
@@ -351,68 +384,58 @@ function HeroMapPreview({ reports, loading, t }) {
   ];
 
   return (
-    <div className="mt-6 rounded-xl border border-[var(--gov-border)] bg-[#f7fafc] p-4 dark:bg-[#111827]">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-        <div className="relative min-h-[210px] flex-1 overflow-hidden rounded-lg border border-[#dce5ee] bg-[#e8eef5] dark:border-[#253044] dark:bg-[#0f172a]">
-          <img
-            src="/nepal-relief-map.jpg"
-            alt={t('dashboard.nepalMap') || 'Nepal map'}
-            className="absolute inset-0 h-full w-full object-cover"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/25 via-transparent to-white/10 dark:from-[#0f172a]/45 dark:to-[#0f172a]/10" />
-          {pinPositions.map((pos, index) => (
-            <span
-              key={index}
-              className="absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[var(--gov-primary)] shadow-lg ring-1 ring-[#f4bbb8]"
-              style={pos}
-            >
-              <MapPin className="h-5 w-5" />
-            </span>
-          ))}
-          <div className="absolute bottom-3 left-3 rounded-lg bg-white/92 px-3 py-2 shadow-sm ring-1 ring-[var(--gov-border)] dark:bg-[#0f172a]/92">
-            <p className="text-xs font-medium text-[var(--gov-text)]">{t('dashboard.mapPreview')}</p>
-            <p className="text-[11px] text-[var(--gov-muted)]">{t('dashboard.mapPreviewSub')}</p>
-          </div>
-        </div>
-
-        <div className="w-full rounded-lg bg-white p-4 ring-1 ring-[var(--gov-border)] dark:bg-[#0f172a] lg:w-[260px]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="gov-h3 mt-1">{t('dashboard.mapAreas')}</h2>
-            </div>
-            <MapPin className="h-5 w-5 text-[var(--gov-primary)]" />
-          </div>
-          {loading ? (
-            <div className="mt-4 space-y-2">
-              <Skeleton className="h-10" />
-              <Skeleton className="h-10" />
-              <Skeleton className="h-10" />
-            </div>
-          ) : !visibleReports.length ? (
-            <p className="gov-secondary mt-4">{t('dashboard.mapNoReports')}</p>
-          ) : (
-            <div className="mt-4 space-y-3">
-              {visibleReports.map((report) => (
-                <Link key={report._id} href={`/issues/${report._id}`} className="block rounded-lg border border-[var(--gov-border)] p-3 transition hover:bg-[#f8fafc] dark:hover:bg-[#111827]">
-                  <p className="truncate text-sm font-medium text-[var(--gov-text)]">{report.title}</p>
-                  <p className="mt-1 truncate text-xs text-[var(--gov-muted)]">
-                    {[report.location?.municipality || report.location?.district, report.location?.ward ? `Ward ${report.location.ward}` : null].filter(Boolean).join(' · ') || t('dashboard.locationPending')}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          )}
+    <div className="mt-6 flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-stretch lg:gap-5">
+      <div className="relative min-h-[210px] overflow-hidden rounded-xl border border-[#dce5ee] bg-[#e8eef5] shadow-sm dark:border-[#253044] dark:bg-[#0f172a] lg:min-h-[340px] lg:rounded-2xl">
+        <img
+          src="/nepal-relief-map.jpg"
+          alt={t('dashboard.nepalMap') || 'Nepal map'}
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-white/30 via-transparent to-white/10 dark:from-[#0f172a]/50 dark:to-[#0f172a]/10" />
+        {pinPositions.map((pos, index) => (
+          <span
+            key={index}
+            className="absolute grid h-9 w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-[var(--gov-primary)] shadow-lg ring-2 ring-white/70 transition-transform hover:z-10 hover:scale-110 lg:h-11 lg:w-11"
+            style={pos}
+          >
+            <MapPin className="h-5 w-5 lg:h-6 lg:w-6" />
+          </span>
+        ))}
+        <div className="absolute bottom-3 left-3 rounded-lg bg-white/90 px-3 py-2 shadow-sm ring-1 ring-[var(--gov-border)] backdrop-blur-sm dark:bg-[#0f172a]/90 lg:bottom-4 lg:left-4 lg:px-3.5 lg:py-2.5">
+          <p className="text-xs font-medium text-[var(--gov-text)] lg:text-sm">{t('dashboard.mapPreview')}</p>
+          <p className="text-[11px] text-[var(--gov-muted)]">{t('dashboard.mapPreviewSub')}</p>
         </div>
       </div>
-    </div>
-  );
-}
-function BudgetMini({ label, value }) {
-  return (
-    <div className="rounded-lg border border-[var(--gov-border)] bg-[#fbfcfe] p-3 dark:bg-[#111827]">
-      <p className="gov-secondary">{label}</p>
-      <p className="mt-1 text-sm font-medium text-[var(--gov-text)]">{value}</p>
+
+      <div className="flex w-full flex-col rounded-xl bg-white p-4 shadow-sm ring-1 ring-[var(--gov-border)] dark:bg-[#0f172a] lg:rounded-2xl lg:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-sm font-semibold text-[var(--gov-text)] lg:text-base">{t('dashboard.mapAreas')}</h2>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#fff4f3] text-[var(--gov-primary)]">
+            <MapPin className="h-4 w-4" />
+          </span>
+        </div>
+        {loading ? (
+          <div className="mt-4 space-y-2">
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+          </div>
+        ) : !visibleReports.length ? (
+          <p className="gov-secondary mt-4">{t('dashboard.mapNoReports')}</p>
+        ) : (
+          <div className="mt-4 flex flex-1 flex-col gap-2.5 lg:gap-3">
+            {visibleReports.map((report) => (
+              <Link key={report._id} href={`/issues/${report._id}`} className="block rounded-lg border border-[var(--gov-border)] p-3 transition hover:border-[var(--gov-primary)]/40 hover:bg-[#fbfcfe] hover:shadow-sm dark:hover:bg-[#111827] lg:p-3.5">
+                <p className="truncate text-sm font-medium text-[var(--gov-text)]">{report.title}</p>
+                <p className="mt-1 truncate text-xs text-[var(--gov-muted)]">
+                  {[report.location?.municipality || report.location?.district, report.location?.ward ? `Ward ${report.location.ward}` : null].filter(Boolean).join(' · ') || t('dashboard.locationPending')}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

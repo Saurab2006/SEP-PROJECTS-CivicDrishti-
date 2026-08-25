@@ -4,7 +4,7 @@ import { get, patch, post, getToken } from '@/lib/api';
 import { formatNPR, cn, relativeTime, initials } from '@/lib/format';
 import { useAuth } from '@/context/AuthContext';
 import {
-  AlertTriangle, Check, CheckCircle2, ChevronRight, Clock3, Download, Eye, FileText,
+  AlertTriangle, Check, CheckCircle2, ChevronRight, Clock3, Download, Eye,
   Landmark, ListTree, Map, MapPin, MessageSquare, PiggyBank, Search, Send, SlidersHorizontal,
   Table2, ThumbsDown, ThumbsUp, TrendingDown, TrendingUp, User, Wallet, X,
 } from 'lucide-react';
@@ -21,9 +21,7 @@ const emptyProposal = {
 const LEVELS = ['province', 'district', 'municipality', 'ward'];
 const LEVEL_LABEL = { province: 'Province', district: 'District', municipality: 'Municipality', ward: 'Ward' };
 
-// Shared semantic tone chips, reused across lifecycle stages, variance
-// alerts and community verdicts so every status reads consistently
-// against the rest of the product.
+
 const TONE = {
   neutral: 'bg-[#f2f5f8] text-[var(--gov-muted)] ring-[var(--gov-border)]',
   info: 'bg-[#eef5fb] text-[var(--gov-info)] ring-[#cbd9e8]',
@@ -46,20 +44,9 @@ function wardValue(value) {
   return String(value || '').replace(/^Ward\s+/i, '').trim().replace(/^0+(?=\d)/, '');
 }
 function sameWard(a, b) { return wardValue(a) === wardValue(b); }
-// Case/whitespace-tolerant compare for province/district/municipality names.
-// The public budget totals (backend-filtered) are lenient about this, but
-// this page's own drill-down filter used to be a strict === match, so a
-// stray space or capitalization difference in how a project's location was
-// entered could make an approved record vanish from the drilled-down list
-// even though it was correctly counted in ward-level totals. Also collapses
-// doubled internal spaces (e.g. "Biratnagar  Metropolitan City"), which
-// render identically to a single space on screen but would otherwise fail
-// an exact-string comparison.
+
 function sameName(a, b) { return String(a || '').trim().toLowerCase().replace(/\s+/g, ' ') === String(b || '').trim().toLowerCase().replace(/\s+/g, ' '); }
-// Province specifically also needs to tolerate the short form ("Koshi")
-// against the full stored form ("Koshi Province") — citizens type the short
-// form into a free-text field on Settings, but budget records always carry
-// the full official name.
+
 function provinceBase(value) { return String(value || '').trim().toLowerCase().replace(/\s+province$/, ''); }
 function sameProvince(a, b) { return provinceBase(a) === provinceBase(b); }
 
@@ -135,14 +122,7 @@ export default function BudgetPage() {
   useEffect(() => { load(); }, []);
   useEffect(() => { loadChanges(); }, [user?.role]);
 
-  // Deep-link support: /budget?district=..&ward=.. (e.g. from the "My Ward
-  // Budget" card on the Citizen Dashboard) drops the visitor straight into
-  // that ward's filtered project list instead of making them click through
-  // Province -> District -> Municipality -> Ward. Municipality is
-  // deliberately left unfiltered here (an empty node name, skipped below) -
-  // citizens' registered municipality spelling doesn't always match how it's
-  // recorded on budget records, and district + ward is enough to identify
-  // the right ward.
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -235,22 +215,6 @@ export default function BudgetPage() {
   };
 
 
-  const downloadPdf = async () => {
-    try {
-      const params = buildExportParams();
-      const res = await fetch('/api/budgets/export.json?' + params.toString(), { headers: { Authorization: 'Bearer ' + (getToken() || '') } });
-      if (!res.ok) throw new Error('Could not fetch export data');
-      const { items: rows, totals, generatedAt } = await res.json();
-      const htmlRows = rows.map(r => '<tr><td>' + (r.title || '') + '</td><td>' + (r.department || '') + '</td><td>' + (r.district || '') + '</td><td>' + (r.municipality || '') + '</td><td>' + (r.ward || '') + '</td><td>' + (r.fiscalYear || '') + '</td><td>' + formatNPR(r.allocated) + '</td><td>' + formatNPR(r.spent) + '</td><td>' + formatNPR(r.remaining) + '</td><td>' + r.utilization + '%</td><td>' + (r.status || '') + '</td></tr>').join('');
-      const report = '<!doctype html><html><head><title>Civicdrishti Budget Report</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#17212b}h1{font-size:20px;margin:0 0 6px}p{margin:4px 0;color:#5f6b7a}table{width:100%;border-collapse:collapse;margin-top:16px;font-size:11px}th,td{border:1px solid #dfe5ec;padding:6px;text-align:left;vertical-align:top}th{background:#ee4540;color:white}.totals{display:flex;gap:12px;margin-top:14px}.totals div{border:1px solid #dfe5ec;border-radius:8px;padding:8px 12px}@media print{button{display:none}}</style></head><body><button onclick="window.print()">Save / Print PDF</button><h1>Civicdrishti - Public Budget Transparency</h1><p>Generated: ' + new Date(generatedAt).toLocaleString() + '</p><div class="totals"><div>Allocated: ' + formatNPR(totals.allocated) + '</div><div>Spent: ' + formatNPR(totals.spent) + '</div><div>Remaining: ' + formatNPR(totals.remaining) + '</div></div><table><thead><tr><th>Project</th><th>Department</th><th>District</th><th>Municipality</th><th>Ward</th><th>FY</th><th>Allocated</th><th>Spent</th><th>Remaining</th><th>Util %</th><th>Status</th></tr></thead><tbody>' + htmlRows + '</tbody></table><script>setTimeout(function(){window.print()},300)<\/script></body></html>';
-      const win = window.open('', '_blank');
-      if (!win) throw new Error('Popup blocked. Allow popups to export PDF.');
-      win.document.write(report);
-      win.document.close();
-      toast.success('PDF report opened');
-    } catch (err) { toast.error(err.message || 'Could not generate PDF'); }
-  };
-
   const submitProposal = async (event) => {
     event.preventDefault();
     if (!selected && !creating) return;
@@ -321,7 +285,7 @@ export default function BudgetPage() {
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             <button onClick={downloadCsv} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-4 text-sm font-medium text-[var(--gov-text)] transition hover:bg-[var(--gov-surface-soft)]"><Download className="h-4 w-4" />Export CSV</button>
-            <button onClick={downloadPdf} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-4 text-sm font-medium text-[var(--gov-text)] transition hover:bg-[var(--gov-surface-soft)]"><FileText className="h-4 w-4" />PDF report</button>
+
             {canPropose && <button onClick={startCreate} className="inline-flex h-10 items-center gap-2 rounded-lg bg-[var(--gov-primary)] px-4 text-sm font-medium text-white transition hover:bg-[var(--gov-primary-dark)]">Add budget record</button>}
           </div>
         </div>
@@ -334,7 +298,7 @@ export default function BudgetPage() {
             <article key={card.label} className="gov-card p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="gov-label uppercase font-bold">{card.label}</p>
+                  <p className="gov-label uppercase" style={{ fontWeight: 700 }}>{card.label}</p>
                 </div>
                 <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-lg', card.tone)}><Icon className="h-4 w-4" /></span>
               </div>
@@ -693,10 +657,7 @@ function FeedbackPanel({ item, onClose }) {
 
   const stats = data?.stats || { total: 0 };
 
-  // Below the xl breakpoint this panel opens as a bottom sheet anchored to
-  // whichever row's "Feedback" button was tapped, instead of appending
-  // itself as a disconnected block under the (often long) records table -
-  // at xl+ it stays inline in the existing sidebar, unchanged.
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 xl:static xl:z-auto xl:block xl:bg-transparent" onClick={onClose}>
       <div onClick={e => e.stopPropagation()} className="gov-card max-h-[88vh] w-full overflow-y-auto rounded-t-2xl p-5 shadow-xl xl:max-h-none xl:overflow-visible xl:rounded-xl xl:shadow-sm">
@@ -813,13 +774,13 @@ function ProposalForm({ creating, selected, proposal, setProposal, submitProposa
   const enabled = creating || selected;
   const update = (key, value) => setProposal(p => ({ ...p, [key]: value }));
   const fields = [
-    ['title', 'Project / program title', 'e.g. Ward 05 Road Improvement Project'],
-    ['department', 'Responsible department', 'e.g. Municipal Infrastructure Department'],
-    ['sector', 'Budget sector', 'e.g. Roads & Transportation'],
-    ['fiscalYear', 'Fiscal year', 'e.g. 2082/83'],
-    ['district', 'District', 'e.g. Morang'],
-    ['municipality', 'Municipality / local level', 'e.g. Biratnagar Metropolitan City'],
-    ['ward', 'Ward number', 'e.g. 05'],
+    ['title', 'Project / program title'],
+    ['department', 'Responsible department'],
+    ['sector', 'Budget sector'],
+    ['fiscalYear', 'Fiscal year'],
+    ['district', 'District'],
+    ['municipality', 'Municipality / local level'],
+    ['ward', 'Ward number'],
   ];
   const moneyFields = [
     ['amount', 'Allocated budget'],
@@ -834,9 +795,7 @@ function ProposalForm({ creating, selected, proposal, setProposal, submitProposa
     <form onSubmit={submitProposal} className="gov-card p-5">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="gov-label uppercase">Budget workflow</p>
           <h2 className="gov-h3 mt-1">{creating ? 'Add budget record' : selected ? 'Propose budget edit' : 'Official budget workspace'}</h2>
-          <p className="gov-secondary mt-1">Submit financial changes for admin review before they become public.</p>
         </div>
         {enabled && <button type="button" onClick={cancel} className="rounded-md p-1.5 text-[var(--gov-subtle)] hover:bg-[var(--gov-surface-soft)]" aria-label="Close budget form"><X className="h-4 w-4" /></button>}
       </div>
@@ -880,7 +839,7 @@ function ProposalForm({ creating, selected, proposal, setProposal, submitProposa
             {moneyFields.map(([key, label]) => (
               <label key={key} className="block">
                 <span className="mb-1 block text-xs font-medium text-[var(--gov-muted)]">{label}</span>
-                <input type="number" min="0" value={proposal[key]} onChange={e => update(key, e.target.value)} placeholder="Amount in NPR" className="h-11 w-full rounded-lg border border-[var(--gov-border)] px-3 text-sm outline-none focus:border-[var(--gov-primary)]" />
+                <input type="number" min="0" value={proposal[key]} onChange={e => update(key, e.target.value)} className="h-11 w-full rounded-lg border border-[var(--gov-border)] px-3 text-sm outline-none focus:border-[var(--gov-primary)]" />
               </label>
             ))}
           </div>

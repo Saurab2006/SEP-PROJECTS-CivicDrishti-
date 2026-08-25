@@ -1,9 +1,7 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
   "/login/page": "app/login/page.js",
   "/(protected)/dashboard/page": "app/(protected)/dashboard/page.js",
-  "/(protected)/settings/page": "app/(protected)/settings/page.js",
-  "/(protected)/admin/municipality-heads/page": "app/(protected)/admin/municipality-heads/page.js",
+  "/(protected)/budget/page": "app/(protected)/budget/page.js",
   "/(protected)/issues/page": "app/(protected)/issues/page.js",
   "/(protected)/issues/[id]/page": "app/(protected)/issues/[id]/page.js"
 }
