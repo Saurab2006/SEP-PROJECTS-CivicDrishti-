@@ -354,7 +354,7 @@ function ReportForm({ meta, onClose, onCreated }) {
           <p className="text-xs leading-5 text-gray-500">Your report is checked against nearby issues. If others reported the same problem, you'll join their issue to raise its community impact - and you still get your own tracking ID.</p>
 
           <Field label="Title">
-            <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Large pothole near Bhrikuti Chowk" className="input" />
+            <input value={form.title} onChange={e => set('title', e.target.value)} className="input" />
           </Field>
 
           <Field label="Description">

@@ -74,7 +74,7 @@ export default function Sidebar({ collapsed = false, mobileOpen = false, onMobil
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {GROUPS.map(group => (
           <section key={group.key} className="mb-6">
-            {!collapsed && <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-[#4e6174]">{t(group.key)}</p>}
+            {!collapsed && group.key !== 'nav.civicWork' && <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wide text-[#4e6174]">{t(group.key)}</p>}
             <div className="space-y-1">
               {group.items.filter(i => !i.hideForRoles?.includes(user?.role)).map(i => item(i.href, t(i.key), t(i.note), i.icon))}
               {group.key === 'nav.accountability' && user?.role === 'admin' && item('/admin/audit-logs', t('nav.auditLogs'), t('nav.auditLogsNote'), ScrollText)}

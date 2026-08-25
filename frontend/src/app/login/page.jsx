@@ -59,7 +59,6 @@ export default function LoginPage() {
       {mode === 'login' ? (
         <>
           <h1 className={styles.pageTitle}>Welcome back</h1>
-          <p className={styles.pageSub}>Track reports, ward budgets, and public work from one clean civic dashboard.</p>
           {error && <div className={styles.errorBox}>{error}</div>}
           <form onSubmit={handleSubmit(onSubmit)} className={styles.mobileLoginForm}>
             <label className={styles.label}>Email <span className={styles.labelNp}>इमेल</span></label>

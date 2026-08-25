@@ -1,4 +1,4 @@
-// File: E:\SEP-PROJECTS-CivicDrishti-\frontend\src\app\(protected)\layout.jsx
+// File: D:\SEP-PROJECTS-CivicDrishti-\frontend\src\app\(protected)\layout.jsx
 import * as entry from '../../../../src/app/(protected)/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

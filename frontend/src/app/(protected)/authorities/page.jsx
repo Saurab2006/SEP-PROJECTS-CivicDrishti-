@@ -270,7 +270,7 @@ function AddAuthorityForm({ onClose, onCreated }) {
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-[#8c8272] hover:bg-[#fffaf2]"><X className="h-4 w-4" /></button>
         </div>
         <div className="space-y-3 p-5">
-          <Field label="Name"><input value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. Department of Roads - Kathmandu" className="input" /></Field>
+          <Field label="Name"><input value={form.name} onChange={e => set('name', e.target.value)} className="input" /></Field>
           <Field label="Department"><input value={form.department} onChange={e => set('department', e.target.value)} className="input" /></Field>
           <Field label="District"><input value={form.district} onChange={e => set('district', e.target.value)} className="input" /></Field>
           <div className="grid grid-cols-2 gap-3"><Field label="Contact phone"><input value={form.contactPhone} onChange={e => set('contactPhone', e.target.value)} className="input" /></Field><Field label="Contact email"><input value={form.contactEmail} onChange={e => set('contactEmail', e.target.value)} className="input" /></Field></div>

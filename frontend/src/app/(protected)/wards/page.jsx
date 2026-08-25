@@ -25,10 +25,10 @@ export default function WardsPage() {
       <div>
         <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#dc143c]">Civicदृष्टि transparency</p>
         <h1 className="mt-1 text-2xl font-black text-[#102a2b]">Ward Transparency</h1>
-        <p className="mt-1 text-sm text-[#65706c]">See projects, budget, civic issues, documents, and notices for any ward.</p>
+        <p className="mt-1 text-sm text-[#65706c]"></p>
       </div>
 
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by province, district, municipality, or ward..." className="h-10 w-full max-w-md rounded-lg border border-[#ded6c8] bg-white px-3 text-sm outline-none focus:border-[#0f3d3e]" />
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search by Province, District, Municipality, or Ward..." className="h-10 w-full max-w-md rounded-lg border border-[#ded6c8] bg-white px-3 text-sm outline-none focus:border-[#0f3d3e]" />
 
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="shimmer h-24 rounded-lg" />)}</div>
