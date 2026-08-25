@@ -209,7 +209,7 @@ export default function DashboardPage() {
         })}
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+      <section className="grid gap-5">
         <div className="gov-card p-5 sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -266,75 +266,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-
-        <div className="gov-card p-5 sm:p-6">
-          <h2 className="gov-h2">{t('dashboard.recentActivity')}</h2>
-          <div className="mt-5 space-y-1">
-            {activity.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.id} className="flex gap-3 rounded-lg p-3 hover:bg-[#f8fafc] dark:hover:bg-[#111827]">
-                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#eef5fb] text-[var(--gov-info)]"><Icon className="h-4 w-4" /></span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium leading-5 text-[var(--gov-text)]">{item.title}</p>
-                    <p className="gov-secondary mt-0.5">{item.meta}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </section>
 
-      <section className="gov-card overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-[var(--gov-border)] px-5 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-6">
-          <div>
-            <h2 className="gov-h2">{t('dashboard.reportsAttention')}</h2>
-          </div>
-          <Link href="/issues" className="text-sm font-medium text-[var(--gov-primary)] hover:underline">{t('dashboard.viewAllReports')}</Link>
-        </div>
-
-        {loading ? (
-          <div className="space-y-3 p-5 sm:p-6">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
-          </div>
-        ) : !reports.length ? (
-          <div className="px-6 py-14 text-center">
-            <Landmark className="mx-auto h-10 w-10 text-[var(--gov-bluegray)]" />
-            <h3 className="gov-h3 mt-3">{t('dashboard.noReports')}</h3>
-            <p className="gov-secondary mx-auto mt-1 max-w-sm">{t('dashboard.noReportsSub')}</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left">
-              <thead className="bg-[#f8fafc] dark:bg-[#111827]">
-                <tr className="border-b border-[var(--gov-border)]">
-                  {[t('dashboard.report'), t('dashboard.location'), t('dashboard.authority'), t('dashboard.priority'), t('dashboard.status'), t('dashboard.updated')].map((head) => (
-                    <th key={head} className="px-5 py-3 text-xs font-medium uppercase tracking-wide text-[var(--gov-muted)]">{head}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--gov-border)]">
-                {reports.slice(0, 3).map((r) => (
-                  <tr key={r._id} className="hover:bg-[#fbfcfe] dark:hover:bg-[#111827]">
-                    <td className="px-5 py-4">
-                      <Link href={`/issues/${r._id}`} className="text-sm font-medium text-[var(--gov-text)] hover:text-[var(--gov-primary)]">{r.title}</Link>
-                      <p className="gov-secondary mt-1">{reportCode(r._id)}</p>
-                    </td>
-                    <td className="px-5 py-4 text-sm font-normal text-[var(--gov-muted)]">
-                      <span className="inline-flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-[var(--gov-subtle)]" />{[r.location?.municipality || r.location?.district, r.location?.ward ? `Ward ${r.location.ward}` : null].filter(Boolean).join(' · ') || t('dashboard.locationPending')}</span>
-                    </td>
-                    <td className="px-5 py-4 text-sm font-normal text-[var(--gov-muted)]">{r.assignedAuthority?.name || r.authority?.name || t('dashboard.notAssigned')}</td>
-                    <td className="px-5 py-4"><span className={cn('gov-badge ring-1', PRIORITY_TONE[r.severity] || PRIORITY_TONE.low)}>{priorityText(r.severity)}</span></td>
-                    <td className="px-5 py-4"><span className={cn('gov-badge ring-1', STATUS_TONE[r.status] || STATUS_TONE.pending)}>{statusText(r.status)}</span></td>
-                    <td className="px-5 py-4 text-sm font-normal text-[var(--gov-muted)]">{dateLabel(r.updatedAt || r.createdAt, t)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </div>
   );
 }

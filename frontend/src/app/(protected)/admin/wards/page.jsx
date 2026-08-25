@@ -170,9 +170,7 @@ export default function WardOfficesPage() {
   return (
     <div className="mx-auto max-w-[1400px] space-y-5">
       <div>
-        <p className="gov-label uppercase">Administration</p>
         <h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Ward offices</h1>
-        <p className="mt-1 text-sm text-[var(--gov-muted)]">Browse the ward directory, or manage ward records and representative applications.</p>
       </div>
 
       <div className="flex flex-wrap gap-2">

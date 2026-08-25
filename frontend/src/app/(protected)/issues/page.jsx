@@ -6,7 +6,7 @@ import { relativeTime, cn } from '@/lib/format';
 import { toast } from 'sonner';
 import {
   AlertTriangle, MapPin, Plus, ArrowRight, Clock, Copy, ShieldAlert,
-  Loader2, X, ImagePlus, ShieldCheck, Search,
+  Loader2, X, ImagePlus, ShieldCheck, Search, Camera,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -321,6 +321,7 @@ function ReportForm({ meta, onClose, onCreated }) {
     e.preventDefault();
     if (!form.title.trim() || !form.description.trim()) { toast.error('Title and description are required'); return; }
     if (!form.reporterContact.trim()) { toast.error("Please add a contact number - it is required so authorities can reach you"); return; }
+    if (form.reporterContact.trim().length !== 10) { toast.error("Contact number must be exactly 10 digits"); return; }
     if (!coords) { toast.error('Please select a location on the map'); return; }
     setSubmitting(true);
     try {
@@ -407,17 +408,34 @@ function ReportForm({ meta, onClose, onCreated }) {
                 </div>
               ))}
               {photos.length < MAX_PHOTOS && (
-                <label className="flex h-20 min-w-32 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 px-3 text-xs font-medium text-gray-500 hover:border-brand-300 hover:bg-brand-50/40 sm:h-16 sm:min-w-16">
-                  <ImagePlus className="h-4 w-4" />
-                  <input type="file" accept="image/*" multiple onChange={handlePhotoChange} className="hidden" />
-                </label>
+                <>
+                  <label className="flex h-20 min-w-32 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 px-3 text-xs font-medium text-gray-500 hover:border-brand-300 hover:bg-brand-50/40 sm:h-16 sm:min-w-16">
+                    <ImagePlus className="h-4 w-4" />
+                    <span className="sm:hidden">Upload</span>
+                    <input type="file" accept="image/*" multiple onChange={handlePhotoChange} className="hidden" />
+                  </label>
+                  <label className="flex h-20 min-w-32 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 px-3 text-xs font-medium text-gray-500 hover:border-brand-300 hover:bg-brand-50/40 sm:h-16 sm:min-w-16">
+                    <Camera className="h-4 w-4" />
+                    <span className="sm:hidden">Camera</span>
+                    <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="hidden" />
+                  </label>
+                </>
               )}
             </div>
             {photoError && <p className="mt-1.5 text-xs text-red-500">{photoError}</p>}
           </div>
 
           <Field label="Your contact number (required)">
-            <input value={form.reporterContact} onChange={e => set('reporterContact', e.target.value)} placeholder="e.g. 98XXXXXXXX" className="input" required />
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={form.reporterContact}
+              onChange={e => set('reporterContact', e.target.value.replace(/\D/g, '').slice(0, 10))}
+              placeholder="e.g. 98XXXXXXXX"
+              maxLength={10}
+              className="input"
+              required
+            />
             <span className="block mt-1 text-[11px] text-gray-400">Used to reach you for follow-up and to verify this isn't a fake report.</span>
           </Field>
         </div>

@@ -34,7 +34,6 @@ export default function AuthoritiesPage() {
     <div className="mx-auto max-w-[1200px] space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[#dc143c]">Civicदृष्टि responsibility chain</p>
           <h1 className="mt-1 text-2xl font-black text-[#102a2b]">Authorities</h1>
         </div>
         {isAdmin && tab === 'directory' && (

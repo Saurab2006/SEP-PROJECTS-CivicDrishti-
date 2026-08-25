@@ -142,7 +142,6 @@ export default function AuditLogsPage() {
     <div className="mx-auto max-w-[1400px] space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="gov-label uppercase">Accountability</p>
           <h1 className="mt-1 text-2xl font-semibold text-[var(--gov-text)]">Audit logs</h1>
         </div>
         <button type="button" onClick={load} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-4 text-sm font-medium text-[var(--gov-muted)] hover:bg-[#f6f8fb]">
