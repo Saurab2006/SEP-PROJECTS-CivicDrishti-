@@ -1,6 +1,6 @@
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Languages, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Languages, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { cn, initials } from '@/lib/format';
@@ -22,7 +22,7 @@ const PAGE_KEYS = [
 ];
 
 export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMobileMenu }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { locale, toggleLocale, t } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
@@ -56,6 +56,15 @@ export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMo
               className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[#edf2f7] text-xs font-semibold text-[var(--gov-text)] ring-1 ring-[var(--gov-border)] transition hover:opacity-90 dark:bg-[#1f2937]"
             >
               {user.selfiePhoto ? <img src={user.selfiePhoto} alt="" className="h-full w-full object-cover" /> : initials(user.name)}
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              aria-label={t('topbar.signOut')}
+              title={t('topbar.signOut')}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[var(--gov-muted)] ring-1 ring-[var(--gov-border)] transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+            >
+              <LogOut className="h-[18px] w-[18px]" />
             </button>
           </div>
         </div>
