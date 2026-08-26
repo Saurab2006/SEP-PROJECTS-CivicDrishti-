@@ -2,7 +2,7 @@
 
 > **Civic Vision — A Digital Platform for Transparency, Accountability, and Citizen Participation in Nepal**
 
-Civicदृष्टि is a civic transparency and accountability platform designed to connect **citizens, local authorities, ward representatives, analysts, and administrators** through a single digital platform.
+Civicदृष्टि is a civic transparency and accountability platform designed to connect **citizens, ward representatives, municipality heads, and administrators** through a single digital platform.
 
 The system combines **public budget transparency** with **civic issue reporting**, enabling citizens to understand how public resources are used, report problems in their communities, and track those issues from reporting to resolution.
 
@@ -25,7 +25,7 @@ Citizens can explore government budget information by:
 * Spending trends
 * Department workload
 
-Analysts can propose corrections or updates to budget records, while administrators review and approve those changes before they become official.
+Ward Representatives and Municipality Heads can propose corrections or updates to budget records, while administrators review and approve those changes before they become official.
 
 ### 🚨 Civic Issue Reporting
 
@@ -110,15 +110,23 @@ Civicदृष्टि is a Progressive Web App (PWA):
 * Works alongside the existing SMS notifications — smartphone users get push, citizens without a smartphone/data still get SMS
 * Fully opt-in, controlled per-device from **Settings → App & notifications**
 
+### 🏛️ Municipality Heads
+
+Municipality Heads receive access scoped to their assigned municipality.
+
+* View and manage civic issues within their municipality
+* View and manage budget data within their municipality
+* Create and manage Ward Representative accounts for wards within their municipality
+* Provisioned by an administrator, not through self-signup
+
 ### 🏘️ Ward Representatives
 
-Ward Representatives receive access based on their approved ward.
+Ward Representatives receive access scoped to their assigned ward.
 
 * Submit and manage civic issues within their ward
-* View ward-specific information
-* Work with relevant budget information
-* Participate in civic issue management
-* Require administrator approval before receiving the role
+* Propose budget changes for their ward, pending admin approval
+* View ward-specific civic issue and budget information
+* Created and assigned by their municipality head, not through self-signup
 
 ### 🌐 Bilingual Interface
 
@@ -133,12 +141,12 @@ Users can switch languages through a centralized language toggle.
 
 Different users receive different permissions based on their responsibilities.
 
-| Role                        | Primary Responsibilities                                           |
-| --------------------------- | ------------------------------------------------------------------ |
-| 👑 **Admin**                | Manage users, approvals, notices, and system-wide data             |
-| 🧑‍💼 **Analyst**           | Verify issues, manage civic data, and propose budget changes       |
-| 👤 **Researcher**           | Report issues, participate in discussions, and explore public data |
-| 🏘️ **Ward Representative** | Handle civic and budget activities within an approved ward         |
+| Role                            | Primary Responsibilities                                                              |
+| -------------------------------- | -------------------------------------------------------------------------------------- |
+| 👑 **Admin**                     | Manage users, approvals, notices, and system-wide data                                 |
+| 🏛️ **Municipality Head**        | Manage civic issues, budgets, and Ward Representatives within an assigned municipality |
+| 🏘️ **Ward Representative**      | Handle civic issues and propose budget changes within an assigned ward                 |
+| 👤 **Citizen**                   | Report issues, participate in discussions, and explore public data                     |
 
 ---
 
@@ -151,7 +159,7 @@ Citizens
    │
    │ Report / View
    ▼
-Analysts
+Ward Representatives / Municipality Heads
    │
    │ Verify / Propose
    ▼
@@ -164,9 +172,9 @@ Official Data
 
 ### 💰 Budget Change Workflow
 
-1. Analyst opens **Budget Explorer**
-2. Analyst selects **Propose Edit**
-3. Analyst submits the proposed changes and reason
+1. Ward Representative or Municipality Head opens **Budget Explorer**
+2. They select **Propose Edit**
+3. They submit the proposed changes and reason
 4. Administrator reviews the change request
 5. Administrator approves or rejects the request
 6. Approved changes are applied to the official budget record
@@ -271,7 +279,7 @@ Government-web/
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── (protected)/        # Auth-gated app pages
-│   │   │   │   ├── admin/          # User management, wards & representatives
+│   │   │   │   ├── admin/          # User management, ward offices & municipality heads
 │   │   │   │   ├── analytics/      # Charts & spending analysis
 │   │   │   │   ├── authorities/    # Responsible authorities directory
 │   │   │   │   ├── budget/         # Budget explorer
@@ -283,7 +291,7 @@ Government-web/
 │   │   │   │   └── layout.jsx      # Sidebar + Topbar shell for all protected pages
 │   │   │   ├── api/                # Next.js route handlers
 │   │   │   ├── login/              # Login page
-│   │   │   ├── signup/             # Signup page (citizen / staff / ward rep)
+│   │   │   ├── signup/             # Signup page (citizen)
 │   │   │   ├── globals.css
 │   │   │   ├── layout.jsx          # Root layout (fonts, providers, theme script)
 │   │   │   └── page.jsx            # Public landing page
@@ -489,7 +497,7 @@ Starts the Next.js frontend.
 
 ## 🧪 Test Accounts
 
-Demo auto-provisioning has been removed — accounts are no longer created automatically on first login. Create real accounts via **Sign up**, choosing the role (Citizen, Local body staff, or Ward Representative). Admin accounts are provisioned manually and can promote other users' roles from **User Management**.
+Demo auto-provisioning has been removed — accounts are no longer created automatically on first login. Create real accounts via **Sign up**, which registers you as a Citizen. Admin and Municipality Head accounts are provisioned manually by an administrator, and a Municipality Head can create Ward Representative accounts for wards within their own municipality from their dashboard.
 
 ---
 
