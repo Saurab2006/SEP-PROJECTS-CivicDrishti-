@@ -1,12 +1,10 @@
 'use client';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Languages, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { initials } from '@/lib/format';
 import NotificationBell from './NotificationBell';
-import { CivicLogo } from './CivicBrand';
 import ThemeToggle from './ThemeToggle';
 
 const PAGE_KEYS = [
@@ -49,7 +47,6 @@ export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMo
           >
             <CollapseIcon className="h-4 w-4" />
           </button>
-          <Link href="/dashboard" className="lg:hidden"><CivicLogo compact /></Link>
           <div className="hidden lg:block">
             <h1 className="mt-1 text-xl font-semibold leading-7 text-[var(--gov-text)]">{pageTitle}</h1>
           </div>

@@ -2,8 +2,10 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/format';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import MobileTabBar from './MobileTabBar';
 import OfflineBanner from './OfflineBanner';
 import ImportantNoticeBanner from './ImportantNoticeBanner';
 import RouteProgress from './RouteProgress';
@@ -21,7 +23,6 @@ export default function ProtectedLayout({ children }) {
   }, [loading, user, router]);
 
   useEffect(() => {
-    setSidebarCollapsed(false);
     setMobileMenuOpen(false);
   }, [pathname]);
 
@@ -39,6 +40,8 @@ export default function ProtectedLayout({ children }) {
 
   if (!user) return null;
 
+  const isCitizen = user.role === 'researcher';
+
   return (
     <div className="gov-app min-h-screen overflow-x-hidden">
       <RouteProgress />
@@ -48,11 +51,12 @@ export default function ProtectedLayout({ children }) {
           <Topbar sidebarCollapsed={sidebarCollapsed} onToggleSidebar={toggleSidebar} onMobileMenu={() => setMobileMenuOpen(true)} />
           <OfflineBanner />
           <ImportantNoticeBanner />
-          <main className="min-w-0 flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+          <main className={cn('min-w-0 flex-1 px-3 py-4 sm:px-6 sm:py-6 lg:px-8', isCitizen && 'pb-24 lg:pb-6')}>
             {children}
           </main>
         </div>
       </div>
+      {isCitizen && <MobileTabBar />}
     </div>
   );
 }

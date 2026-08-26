@@ -57,19 +57,20 @@ function DirectoryTab({ wards, loading }) {
           No wards found.
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-3">
           {filtered.map(w => (
             <Link
               key={w._id}
               href={`/wards/${w._id}`}
-              className="flex items-center justify-between rounded-xl border border-[var(--gov-border)] bg-white p-4 shadow-sm transition hover:border-[var(--gov-primary)]/50 hover:shadow-md"
+              className="flex items-center justify-between gap-1.5 rounded-xl border border-[var(--gov-border)] bg-white p-2.5 shadow-sm transition hover:border-[var(--gov-primary)]/50 hover:shadow-md sm:gap-2 sm:p-4"
             >
               <div className="min-w-0">
-                <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--gov-text)]"><MapPin className="h-3.5 w-3.5 text-[var(--gov-primary)]" />Ward {w.ward}</p>
-                <p className="mt-1 truncate text-xs text-[var(--gov-muted)]">{w.municipality || w.district}{w.district && w.municipality ? `, ${w.district}` : ''}</p>
-                <p className="text-[11px] text-[var(--gov-muted)]">{w.province}</p>
+                <p className="flex items-center gap-1 text-xs font-semibold text-[var(--gov-text)] sm:gap-1.5 sm:text-sm"><MapPin className="h-3 w-3 shrink-0 text-[var(--gov-primary)] sm:h-3.5 sm:w-3.5" />Ward {w.ward}</p>
+                <p className="mt-1 truncate text-[10px] text-[var(--gov-muted)] sm:text-xs">
+                  {[[w.municipality || w.district, w.district && w.municipality ? w.district : null].filter(Boolean).join(', '), w.province].filter(Boolean).join(' · ')}
+                </p>
               </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-[var(--gov-border)]" />
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[var(--gov-border)] sm:h-4 sm:w-4" />
             </Link>
           ))}
         </div>
