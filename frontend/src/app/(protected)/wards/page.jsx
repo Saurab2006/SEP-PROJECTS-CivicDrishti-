@@ -52,6 +52,6 @@ export default function WardsPage() {
           ))}
         </div>
       )}
-    </div>
+    </div>  
   );
 }

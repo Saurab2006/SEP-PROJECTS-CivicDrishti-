@@ -1,9 +1,10 @@
 'use client';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Languages, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { initials } from '@/lib/format';
+import { cn, initials } from '@/lib/format';
+import { NepalCivicMark } from './CivicBrand';
 import NotificationBell from './NotificationBell';
 import ThemeToggle from './ThemeToggle';
 
@@ -24,8 +25,10 @@ export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMo
   const { user } = useAuth();
   const { locale, toggleLocale, t } = useLanguage();
   const pathname = usePathname();
+  const router = useRouter();
   if (!user) return null;
 
+  const isCitizen = user.role === 'researcher';
   const pageKey = PAGE_KEYS.find(([href]) => pathname === href || pathname.startsWith(href + '/'))?.[1] || 'dashboard.title';
   const pageTitle = t(pageKey);
   const roleKey = user.role === 'admin' ? 'role.admin' : user.role === 'ward_rep' ? 'role.wardRep' : user.role === 'municipality_head' ? 'role.municipalityHead' : 'role.citizen';
@@ -33,7 +36,32 @@ export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMo
 
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--gov-border)] bg-white/95 backdrop-blur dark:bg-[#111827]/95">
-      <div className="flex min-h-[64px] items-center justify-between gap-3 px-3 sm:min-h-[72px] sm:px-6 lg:px-8">
+      {isCitizen && (
+        <div className="flex h-16 items-center justify-between gap-3 px-4 lg:hidden">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#fff7ec] shadow-sm">
+              <NepalCivicMark className="h-8 w-8" />
+            </div>
+            <p className="truncate text-base font-extrabold tracking-tight text-[#102a2b] dark:text-white">
+              Civic<span>दृष्टि</span>
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2.5">
+            <NotificationBell />
+            <button
+              type="button"
+              onClick={() => router.push('/settings')}
+              aria-label={t('nav.settings')}
+              title={t('nav.settings')}
+              className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-[#edf2f7] text-xs font-semibold text-[var(--gov-text)] ring-1 ring-[var(--gov-border)] transition hover:opacity-90 dark:bg-[#1f2937]"
+            >
+              {user.selfiePhoto ? <img src={user.selfiePhoto} alt="" className="h-full w-full object-cover" /> : initials(user.name)}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={cn('flex min-h-[64px] items-center justify-between gap-3 px-3 sm:min-h-[72px] sm:px-6 lg:px-8', isCitizen && 'hidden lg:flex')}>
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <button type="button" onClick={onMobileMenu} className="grid h-10 w-10 place-items-center rounded-lg border border-[var(--gov-border)] text-[var(--gov-muted)] hover:bg-[#f6f8fb] lg:hidden" aria-label="Open menu" aria-expanded={false}>
             <Menu className="h-5 w-5" />
@@ -64,13 +92,17 @@ export default function Topbar({ sidebarCollapsed = false, onToggleSidebar, onMo
           </button>
           <ThemeToggle className="!h-10 inline-flex" />
           <NotificationBell />
-          <div className="hidden items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-2.5 py-1.5 dark:bg-[#0f172a] sm:flex">
+          <button
+            type="button"
+            onClick={() => router.push('/settings')}
+            className="hidden items-center gap-2 rounded-lg border border-[var(--gov-border)] bg-white px-2.5 py-1.5 text-left transition hover:bg-[#f6f8fb] dark:bg-[#0f172a] sm:flex"
+          >
             <div className="grid h-8 w-8 place-items-center overflow-hidden rounded-full bg-[#edf2f7] text-xs font-semibold text-[var(--gov-text)] dark:bg-[#1f2937]">{user.selfiePhoto ? <img src={user.selfiePhoto} alt="" className="h-full w-full object-cover" /> : initials(user.name)}</div>
             <div className="min-w-0">
               <p className="max-w-[120px] truncate text-sm font-medium leading-5 text-[var(--gov-text)]">{user.name}</p>
               <p className="text-xs font-normal leading-4 text-[var(--gov-subtle)]">{t(roleKey)}</p>
             </div>
-          </div>
+          </button>
         </div>
       </div>
 

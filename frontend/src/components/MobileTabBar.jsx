@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ClipboardList, Gauge, Landmark, MapPinned, Settings, Table2 } from 'lucide-react';
+import { ClipboardList, Gauge, Landmark, MapPinned, Table2 } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import { cn } from '@/lib/format';
 
@@ -10,7 +10,7 @@ const TABS = [
   { href: '/issues', key: 'nav.issues', icon: ClipboardList },
   { href: '/budget', key: 'nav.budget', icon: Table2 },
   { href: '/wards', key: 'nav.wards', icon: MapPinned },
-  { href: '/settings', key: 'nav.settings', icon: Settings },
+  { href: '/authorities', key: 'nav.authorities', icon: Landmark },
 ];
 
 export default function MobileTabBar() {
