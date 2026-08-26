@@ -291,18 +291,18 @@ export default function BudgetPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
-            <article key={card.label} className="gov-card p-5">
-              <div className="flex items-start justify-between gap-4">
+            <article key={card.label} className="gov-card p-3.5 sm:p-5">
+              <div className="flex items-start justify-between gap-2 sm:gap-4">
                 <div>
                   <p className="gov-label uppercase" style={{ fontWeight: 700 }}>{card.label}</p>
                 </div>
-                <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-lg', card.tone)}><Icon className="h-4 w-4" /></span>
+                <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg sm:h-9 sm:w-9', card.tone)}><Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></span>
               </div>
-              {loading ? <div className="shimmer mt-5 h-8 w-28 rounded-lg bg-[#edf2f7]" /> : <p className="gov-stat mt-5 font-normal">{card.value}</p>}
+              {loading ? <div className="shimmer mt-3 h-6 w-24 rounded-lg bg-[#edf2f7] sm:mt-5 sm:h-8 sm:w-28" /> : <p className="gov-stat mt-3 font-normal sm:mt-5">{card.value}</p>}
             </article>
           );
         })}
@@ -468,7 +468,7 @@ function Progress({ node }) {
   return <div><div className="mb-1 flex justify-between text-xs font-medium text-[var(--gov-muted)]"><span>{node.completion}% complete</span><span>{formatNPR(node.spent)} spent</span></div><div className="h-2 overflow-hidden rounded-full bg-[#edf2f7]"><div className="h-full rounded-full bg-[var(--gov-primary)]" style={{ width: `${Math.min(100, node.completion)}%` }} /></div></div>;
 }
 function MapView({ nodes, level, onDrill }) {
-  return <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{nodes.map((n, i) => <button key={n.id} onClick={() => onDrill(n)} className="min-h-40 rounded-lg border border-[var(--gov-border)] bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-[var(--gov-primary)] hover:shadow-md"><div className="flex items-start justify-between"><div><p className="gov-label uppercase">{LEVEL_LABEL[level]}</p><h3 className="gov-h3 mt-1">{n.name}</h3></div><span className="grid h-7 w-7 place-items-center rounded-md bg-[var(--gov-surface-soft)] text-xs text-[var(--gov-subtle)]">{i + 1}</span></div><p className="gov-label mt-5 uppercase">Allocated</p><p className="mt-0.5 text-[26px] font-semibold tracking-tight text-[var(--gov-text)]">{formatNPR(n.allocated)}</p><div className="mt-4"><Progress node={n} /></div><div className="mt-3 flex flex-wrap items-center gap-2"><span className="gov-badge bg-[#fff4f3] text-[var(--gov-primary)]">{n.projectCount} records</span><span className="text-[11px] text-[var(--gov-subtle)]">{n.delayed} delayed</span></div></button>)}</div>;
+  return <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{nodes.map((n, i) => <button key={n.id} onClick={() => onDrill(n)} className="rounded-lg border border-[var(--gov-border)] bg-white p-3.5 text-left transition hover:-translate-y-0.5 hover:border-[var(--gov-primary)] hover:shadow-md sm:min-h-40 sm:p-5"><div className="flex items-start justify-between"><div><p className="gov-label uppercase">{LEVEL_LABEL[level]}</p><h3 className="gov-h3 mt-1">{n.name}</h3></div><span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[var(--gov-surface-soft)] text-xs text-[var(--gov-subtle)]">{i + 1}</span></div><p className="gov-label mt-3 uppercase sm:mt-5">Allocated</p><p className="mt-0.5 text-xl font-semibold tracking-tight text-[var(--gov-text)] sm:text-[26px]">{formatNPR(n.allocated)}</p><div className="mt-3 sm:mt-4"><Progress node={n} /></div><div className="mt-2.5 flex flex-wrap items-center gap-2 sm:mt-3"><span className="gov-badge bg-[#fff4f3] text-[var(--gov-primary)]">{n.projectCount} records</span><span className="text-[11px] text-[var(--gov-subtle)]">{n.delayed} delayed</span></div></button>)}</div>;
 }
 function ListView({ nodes, level, onDrill }) {
   return <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-[var(--gov-surface-soft)]"><tr className="border-b border-[var(--gov-border)] text-left text-xs font-medium uppercase tracking-wide text-[var(--gov-muted)]"><th className="px-3 py-3">{LEVEL_LABEL[level]}</th><th className="px-3 py-3 text-right">Allocated</th><th className="px-3 py-3 text-right">Spent</th><th className="px-3 py-3">Completion</th><th className="px-3 py-3">Stages</th></tr></thead><tbody className="divide-y divide-[var(--gov-border)]">{nodes.map(n => <tr key={n.id} onClick={() => onDrill(n)} className="cursor-pointer hover:bg-[var(--gov-surface-soft)]"><td className="px-3 py-3.5 font-medium text-[var(--gov-text)]">{n.name}</td><td className="px-3 py-3.5 text-right text-[15px] font-medium text-[var(--gov-text)]">{formatNPR(n.allocated)}</td><td className="px-3 py-3.5 text-right text-[15px] font-medium text-[var(--gov-text)]">{formatNPR(n.spent)}</td><td className="min-w-56 px-3 py-3.5"><Progress node={n} /></td><td className="px-3 py-3.5 text-xs text-[var(--gov-subtle)]">{n.planned} planned / {n.ongoing} ongoing / {n.completedStage} done / {n.delayed} delayed</td></tr>)}</tbody></table></div>;

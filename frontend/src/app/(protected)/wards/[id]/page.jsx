@@ -55,7 +55,7 @@ export default function WardTransparencyPage() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <Metric label="Total Allocated" value={formatNPR(budget.summary.allocated)} />
         <Metric label="Spent" value={formatNPR(budget.summary.spent)} />
         <Metric label="Remaining" value={formatNPR(budget.summary.remaining)} />
@@ -138,7 +138,7 @@ export default function WardTransparencyPage() {
 }
 
 function Metric({ label, value }) {
-  return <div className="rounded-lg border border-[#ded6c8] bg-white p-4 shadow-sm"><p className="text-[11px] text-[#8c8272]">{label}</p><p className="mt-1 text-[22px] font-black tabular-nums text-[#0f6e56]">{value}</p></div>;
+  return <div className="rounded-lg border border-[#ded6c8] bg-white p-2.5 shadow-sm sm:p-4"><p className="truncate text-[10px] text-[#8c8272] sm:text-[11px]">{label}</p><p className="mt-1 truncate text-sm font-black tabular-nums text-[#0f6e56] sm:text-[22px]">{value}</p></div>;
 }
 
 function Section({ title, icon: Icon, empty, children }) {

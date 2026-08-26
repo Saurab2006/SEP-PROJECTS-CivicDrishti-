@@ -44,7 +44,7 @@ export default function CivicAuthShell({ activeTab, children }) {
           <div className={styles.mobileHeroWash} />
           <div className={styles.mobileHeroContent}>
             <CivicLogo />
-            <p>सुनिने आवाज, दर्ज इतिहास</p>
+            <p>तपाईंको सरकार, तपाईंको दृष्टिमा</p>
           </div>
         </section>
 

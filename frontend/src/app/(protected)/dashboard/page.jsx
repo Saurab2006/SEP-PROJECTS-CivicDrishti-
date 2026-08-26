@@ -224,19 +224,19 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
-            <article key={card.title} className="gov-card p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="gov-h3">{card.title}</h2>
-                  <p className="gov-secondary mt-1">{card.support}</p>
+            <article key={card.title} className="gov-card p-3.5 sm:p-5">
+              <div className="flex items-start justify-between gap-2 sm:gap-4">
+                <div className="min-w-0">
+                  <h2 className="gov-h3 text-sm sm:text-base">{card.title}</h2>
+                  <p className="gov-secondary mt-1 hidden sm:block">{card.support}</p>
                 </div>
-                <span className={cn('grid h-9 w-9 place-items-center rounded-lg', card.tone)}><Icon className="h-4 w-4" /></span>
+                <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg sm:h-9 sm:w-9', card.tone)}><Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></span>
               </div>
-              {loading ? <Skeleton className="mt-5 h-8 w-28" /> : <p className="gov-stat mt-5">{card.value}</p>}
+              {loading ? <Skeleton className="mt-3 h-6 w-24 sm:mt-5 sm:h-8 sm:w-28" /> : <p className="gov-stat mt-3 sm:mt-5">{card.value}</p>}
             </article>
           );
         })}
@@ -332,12 +332,12 @@ function MyWardBudgetCard({ t, ward, municipality, district, loading, budget, de
   const hasData = budget && budget.count > 0;
 
   return (
-    <section className="gov-card flex flex-wrap items-center gap-4 border border-[var(--gov-primary)]/20 p-4">
+    <section className="gov-card flex flex-col gap-4 border border-[var(--gov-primary)]/20 p-4 sm:flex-row sm:flex-wrap sm:items-center">
       <div className="flex shrink-0 items-center gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#fff4f3] text-[var(--gov-primary)]"><Landmark className="h-4 w-4" /></span>
-        <div>
-          <p className="text-sm font-semibold text-[var(--gov-text)]">{t('dashboard.myWardBudget')} · Ward {wardNumber}</p>
-          <p className="gov-secondary">{locationLine || t('dashboard.myWardBudgetSub')}</p>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-[var(--gov-text)]">{t('dashboard.myWardBudget')} · Ward {wardNumber}</p>
+          <p className="gov-secondary truncate">{locationLine || t('dashboard.myWardBudgetSub')}</p>
         </div>
       </div>
 
@@ -348,18 +348,33 @@ function MyWardBudgetCard({ t, ward, municipality, district, loading, budget, de
       ) : !hasData ? (
         <p className="gov-secondary flex-1">{t('dashboard.noWardBudget')}</p>
       ) : (
-        <div className="flex min-w-[220px] flex-1 flex-wrap items-center gap-x-6 gap-y-2">
-          <InlineStat label={t('dashboard.allocated')} value={formatNPR(totalBudget)} />
-          <InlineStat label={t('dashboard.spent')} value={formatNPR(spentBudget)} />
-          <InlineStat label={t('dashboard.remaining')} value={formatNPR(remainingBudget)} />
-          <InlineStat label={t('dashboard.progress')} value={`${progress}%`} />
-          <div className="h-1.5 min-w-[100px] flex-1 overflow-hidden rounded-full bg-[#edf2f7] dark:bg-[#1f2937]">
-            <div className="h-full rounded-full bg-[var(--gov-primary)] transition-all" style={{ width: `${progress}%` }} />
+        <>
+          <div className="flex w-full flex-col gap-3 sm:hidden">
+            <div className="grid grid-cols-3 gap-3">
+              <InlineStat label={t('dashboard.allocated')} value={formatNPR(totalBudget)} />
+              <InlineStat label={t('dashboard.spent')} value={formatNPR(spentBudget)} />
+              <InlineStat label={t('dashboard.remaining')} value={formatNPR(remainingBudget)} />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="gov-label shrink-0 uppercase">{t('dashboard.progress')} <span className="font-semibold text-[var(--gov-text)]">{progress}%</span></span>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#edf2f7] dark:bg-[#1f2937]">
+                <div className="h-full rounded-full bg-[var(--gov-primary)] transition-all" style={{ width: `${progress}%` }} />
+              </div>
+            </div>
           </div>
-        </div>
+          <div className="hidden min-w-[220px] flex-1 flex-wrap items-center gap-x-6 gap-y-2 sm:flex">
+            <InlineStat label={t('dashboard.allocated')} value={formatNPR(totalBudget)} />
+            <InlineStat label={t('dashboard.spent')} value={formatNPR(spentBudget)} />
+            <InlineStat label={t('dashboard.remaining')} value={formatNPR(remainingBudget)} />
+            <InlineStat label={t('dashboard.progress')} value={`${progress}%`} />
+            <div className="h-1.5 min-w-[100px] flex-1 overflow-hidden rounded-full bg-[#edf2f7] dark:bg-[#1f2937]">
+              <div className="h-full rounded-full bg-[var(--gov-primary)] transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        </>
       )}
 
-      <Link href={detailsHref} className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--gov-primary)] px-3 text-xs font-medium text-white transition hover:bg-[var(--gov-primary-dark)]">
+      <Link href={detailsHref} className="inline-flex h-9 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--gov-primary)] px-3 text-xs font-medium text-white transition hover:bg-[var(--gov-primary-dark)] sm:w-auto">
         {t('dashboard.viewDetails')} <ArrowRight className="h-3.5 w-3.5" />
       </Link>
     </section>
@@ -408,27 +423,27 @@ function HeroMapPreview({ reports, loading, t }) {
         </div>
       </div>
 
-      <div className="flex w-full flex-col rounded-xl bg-white p-4 shadow-sm ring-1 ring-[var(--gov-border)] dark:bg-[#0f172a] lg:rounded-2xl lg:p-5">
+      <div className="flex w-full flex-col rounded-xl bg-white p-3.5 shadow-sm ring-1 ring-[var(--gov-border)] dark:bg-[#0f172a] sm:p-4 lg:rounded-2xl lg:p-5">
         <div className="flex items-start justify-between gap-3">
           <h2 className="text-sm font-semibold text-[var(--gov-text)] lg:text-base">{t('dashboard.mapAreas')}</h2>
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#fff4f3] text-[var(--gov-primary)]">
-            <MapPin className="h-4 w-4" />
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#fff4f3] text-[var(--gov-primary)] sm:h-8 sm:w-8">
+            <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </span>
         </div>
         {loading ? (
-          <div className="mt-4 space-y-2">
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
-            <Skeleton className="h-10" />
+          <div className="mt-3 space-y-2 sm:mt-4">
+            <Skeleton className="h-9 sm:h-10" />
+            <Skeleton className="h-9 sm:h-10" />
+            <Skeleton className="h-9 sm:h-10" />
           </div>
         ) : !visibleReports.length ? (
-          <p className="gov-secondary mt-4">{t('dashboard.mapNoReports')}</p>
+          <p className="gov-secondary mt-3 sm:mt-4">{t('dashboard.mapNoReports')}</p>
         ) : (
-          <div className="mt-4 flex flex-1 flex-col gap-2.5 lg:gap-3">
+          <div className="mt-3 flex flex-1 flex-col gap-2 sm:mt-4 sm:gap-2.5 lg:gap-3">
             {visibleReports.map((report) => (
-              <Link key={report._id} href={`/issues/${report._id}`} className="block rounded-lg border border-[var(--gov-border)] p-3 transition hover:border-[var(--gov-primary)]/40 hover:bg-[#fbfcfe] hover:shadow-sm dark:hover:bg-[#111827] lg:p-3.5">
+              <Link key={report._id} href={`/issues/${report._id}`} className="block rounded-lg border border-[var(--gov-border)] p-2.5 transition hover:border-[var(--gov-primary)]/40 hover:bg-[#fbfcfe] hover:shadow-sm dark:hover:bg-[#111827] sm:p-3 lg:p-3.5">
                 <p className="truncate text-sm font-medium text-[var(--gov-text)]">{report.title}</p>
-                <p className="mt-1 truncate text-xs text-[var(--gov-muted)]">
+                <p className="mt-0.5 truncate text-xs text-[var(--gov-muted)] sm:mt-1">
                   {[report.location?.municipality || report.location?.district, report.location?.ward ? `Ward ${report.location.ward}` : null].filter(Boolean).join(' · ') || t('dashboard.locationPending')}
                 </p>
               </Link>
