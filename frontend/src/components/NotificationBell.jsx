@@ -124,9 +124,6 @@ function NotificationDrawer({ notification, visible, onClose, onNavigate }) {
   );
 }
 
-const PANEL_MARGIN = 12; // min gap kept between the panel and the viewport edges
-const PANEL_MAX_WIDTH = 380;
-
 export default function NotificationBell() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -135,9 +132,7 @@ export default function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [activeNotification, setActiveNotification] = useState(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [coords, setCoords] = useState(null);
   const ref = useRef(null);
-  const panelRef = useRef(null);
 
   const load = useCallback(() => {
     get('/api/notifications').then(d => { setItems(d.notifications || []); setUnread(d.unreadCount || 0); }).catch(() => {});
@@ -151,42 +146,11 @@ export default function NotificationBell() {
 
   useEffect(() => {
     function onClick(e) {
-      if (ref.current && !ref.current.contains(e.target) && panelRef.current && !panelRef.current.contains(e.target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
     }
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
-
-  // Position the panel against the viewport (not the trigger's offset parent) so it
-  // always stays fully on-screen — regardless of where the bell sits in the header.
-  const reposition = useCallback(() => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const isMobile = vw < 1024; // matches the lg: breakpoint used by MobileTabBar/Topbar
-    const bottomReserve = isMobile ? 84 : PANEL_MARGIN; // clears the fixed mobile tab bar
-
-    const width = Math.min(PANEL_MAX_WIDTH, vw - PANEL_MARGIN * 2);
-    let left = rect.right - width; // prefer aligning the panel's right edge to the bell
-    left = Math.max(PANEL_MARGIN, Math.min(left, vw - width - PANEL_MARGIN));
-
-    let top = rect.bottom + 8;
-    const maxHeight = Math.max(220, vh - top - bottomReserve);
-
-    setCoords({ top, left, width, maxHeight });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    reposition();
-    window.addEventListener('resize', reposition);
-    window.addEventListener('scroll', reposition, true);
-    return () => {
-      window.removeEventListener('resize', reposition);
-      window.removeEventListener('scroll', reposition, true);
-    };
-  }, [open, reposition]);
 
   const openItem = async (n) => {
     if (!n.read) { setItems(prev => prev.map(x => x._id === n._id ? { ...x, read: true } : x)); setUnread(u => Math.max(0, u - 1)); patch(`/api/notifications/${n._id}`).catch(() => {}); }
@@ -217,14 +181,14 @@ export default function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => { setOpen(o => !o); setShowAll(false); }}
-        className={cn('relative grid h-10 w-10 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700', open && 'bg-gray-50 text-gray-700')}
+        className={cn('relative grid h-10 w-10 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200', open && 'bg-gray-50 text-gray-700 dark:bg-white/10 dark:text-white')}
         title="Notifications"
         aria-label="Notifications"
         aria-expanded={open}
       >
         <Bell className="h-[18px] w-[18px]" />
         {unread > 0 && (
-          <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+          <span className="absolute right-1 top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#111827]">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -232,28 +196,26 @@ export default function NotificationBell() {
 
       {open && (
         <>
-          {/* Dims the page on small screens so the panel reads as a focused overlay rather than a stray box */}
-          <div className="fixed inset-0 z-40 bg-black/10 lg:hidden" aria-hidden="true" />
+          {/* Overlay on small screens */}
+          <div className="fixed inset-0 z-40 bg-black/20 sm:hidden" onClick={() => setOpen(false)} aria-hidden="true" />
 
           <div
-            ref={panelRef}
             role="dialog"
             aria-label="Notifications"
-            style={coords ? { top: coords.top, left: coords.left, width: coords.width, maxHeight: coords.maxHeight } : { visibility: 'hidden' }}
-            className="fixed z-50 flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl ring-1 ring-black/5"
+            className="fixed inset-x-3 top-16 z-50 flex max-h-[calc(100vh-80px)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl ring-1 ring-black/5 dark:border-gray-800 dark:bg-[#111827] dark:ring-white/10 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px] sm:max-h-[540px]"
           >
-            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3.5">
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-100 px-4 py-3.5 dark:border-gray-800">
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
-                <p className="mt-0.5 truncate text-xs text-gray-400">{unread ? `${unread} unread` : 'You are up to date'}</p>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Notifications</h3>
+                <p className="mt-0.5 truncate text-xs text-gray-400 dark:text-gray-400">{unread ? `${unread} unread` : 'You are up to date'}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 {unread > 0 && (
-                  <button onClick={markAllRead} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-50">
+                  <button onClick={markAllRead} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-950/50">
                     Mark all read
                   </button>
                 )}
-                <button onClick={() => setOpen(false)} aria-label="Close notifications" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 lg:hidden">
+                <button onClick={() => setOpen(false)} aria-label="Close notifications" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 sm:hidden dark:hover:bg-white/10">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -262,7 +224,7 @@ export default function NotificationBell() {
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {recentItems.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
-                  <div className="grid h-10 w-10 place-items-center rounded-full bg-gray-50 text-gray-300">
+                  <div className="grid h-10 w-10 place-items-center rounded-full bg-gray-50 text-gray-300 dark:bg-white/5 dark:text-gray-600">
                     <BellOff className="h-5 w-5" />
                   </div>
                   <p className="text-sm text-gray-400">You&apos;re all caught up</p>
@@ -270,16 +232,16 @@ export default function NotificationBell() {
               ) : recentItems.map(n => {
                 const Icon = ICONS[n.type] || Bell;
                 return (
-                  <button key={n._id} onClick={() => openItem(n)} className={cn('flex w-full items-start gap-3 border-b border-gray-50 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-gray-50/70', !n.read && 'bg-brand-50/40')}>
-                    <div className={cn('mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full', !n.read ? 'bg-brand-100 text-brand-600' : 'bg-gray-100 text-gray-400')}>
+                  <button key={n._id} onClick={() => openItem(n)} className={cn('flex w-full items-start gap-3 border-b border-gray-50 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-gray-50/70 dark:border-gray-800/60 dark:hover:bg-white/5', !n.read && 'bg-brand-50/40 dark:bg-brand-950/20')}>
+                    <div className={cn('mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full', !n.read ? 'bg-brand-100 text-brand-600 dark:bg-brand-900/40 dark:text-brand-400' : 'bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-gray-400')}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className={cn('text-[13px] leading-snug', !n.read ? 'font-semibold text-gray-900' : 'font-medium text-gray-700')}>{n.title}</p>
+                        <p className={cn('text-[13px] leading-snug', !n.read ? 'font-semibold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300')}>{n.title}</p>
                         {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
                       </div>
-                      <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-gray-500">{n.message}</p>
+                      <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{n.message}</p>
                       <p className="mt-1 text-[11px] text-gray-400">{relativeTime(n.createdAt)}</p>
                     </div>
                   </button>
@@ -291,7 +253,7 @@ export default function NotificationBell() {
               <button
                 type="button"
                 onClick={() => setShowAll(v => !v)}
-                className="flex h-12 shrink-0 items-center justify-center gap-1.5 border-t border-gray-100 text-sm font-semibold text-brand-600 transition-colors hover:bg-gray-50"
+                className="flex h-12 shrink-0 items-center justify-center gap-1.5 border-t border-gray-100 text-sm font-semibold text-brand-600 transition-colors hover:bg-gray-50 dark:border-gray-800 dark:text-brand-400 dark:hover:bg-white/5"
               >
                 {showAll ? 'Show recent only' : 'View all notifications'}
                 <ChevronRight className={cn('h-4 w-4 transition-transform', showAll && 'rotate-90')} />
