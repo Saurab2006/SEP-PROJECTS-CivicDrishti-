@@ -57,6 +57,14 @@ app.use(compression());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '12mb' }));
 
+// On a persistent server (npm run dev/start) the DB connects once at boot, before
+// app.listen(), and stays connected for the process's whole lifetime. On Vercel
+// there is no boot step — each request may hit a fresh serverless invocation — so
+// every request awaits connect() here. connect() itself is cheap/no-op once a
+// connection already exists (see db.js), so this doesn't add real latency on warm
+// invocations or in the traditional server case.
+app.use((req, res, next) => { connect().then(() => next()).catch(next); });
+
 function useMongoRoutes(path, router) {
   app.use(path, (req, res, next) => {
     if (getMode() !== 'mongo') return next();
@@ -587,8 +595,8 @@ const BASE_AUTHORITIES = [
   'Water Supply & Sewerage Corporation', 'Urban Development Dept', 'Electricity Authority',
 ];
 
-async function start() {
-  await connect();
+async function seedIfNeeded() {
+  await connect(); // no-op if already connected — see db.js
   if (getMode() === 'mongo') {
     await ensureNotificationIndexes();
     const count = await Authority.countDocuments();
@@ -596,7 +604,18 @@ async function start() {
       await Authority.insertMany(BASE_AUTHORITIES.map(name => ({ name, department: name, district: '', source: 'seed' })));
     }
   }
+}
+
+async function start() {
+  await connect();
+  await seedIfNeeded();
   app.listen(PORT, () => console.log(`✓ Express API on :${PORT} (${getMode()} mode)`));
 }
 
-start();
+
+if (!process.env.VERCEL) {
+  start();
+}
+
+module.exports = app;
+module.exports.seedIfNeeded = seedIfNeeded;

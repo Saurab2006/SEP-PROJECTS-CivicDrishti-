@@ -1,6 +1,9 @@
 {
   "name": "backend",
   "private": true,
+  "engines": {
+    "node": ">=18.18.0"
+  },
   "scripts": {
     "dev": "node index.js",
     "start": "node index.js"
