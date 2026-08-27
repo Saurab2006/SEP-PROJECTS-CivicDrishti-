@@ -1,10 +1,8 @@
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
-
 /** @type {import('next').NextConfig} */
 module.exports = {
   reactStrictMode: true,
   async rewrites() {
-    return [{ source: '/api/:path*', destination: `${BACKEND_URL}/api/:path*` }];
+    return [{ source: '/api/:path*', destination: 'http://localhost:5000/api/:path*' }];
   },
   webpack: (config) => {
 
