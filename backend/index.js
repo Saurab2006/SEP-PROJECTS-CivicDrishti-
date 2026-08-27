@@ -112,7 +112,19 @@ function useMongoRoutes(path, router) {
   });
 }
 
-// Health
+// Root & Health
+app.get('/', (_, res) => res.json({
+  name: 'CivicDrishti API',
+  status: 'online',
+  database: getMode(),
+  endpoints: {
+    health: '/api/health',
+    analytics: '/api/analytics',
+    budgets: '/api/budgets',
+    reports: '/api/reports',
+    auth: '/api/auth'
+  }
+}));
 app.get('/api/health', (_, res) => res.json({ ok: true, database: getMode() }));
 app.get('/api/ai/gemini-status', (req, res) => {
   res.json({ configured: hasGemini(), keyPresent: Boolean(process.env.GEMINI_API_KEY) });
