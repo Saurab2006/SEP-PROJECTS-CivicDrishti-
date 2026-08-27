@@ -1,26 +1,21 @@
 /** @type {import('next').NextConfig} */
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+const BACKEND_URL =
+  process.env.BACKEND_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === 'development'
+    ? 'http://localhost:5000'
+    : 'https://sep-projects-civic-drishti-backend.vercel.app');
 
 module.exports = {
   reactStrictMode: true,
   async rewrites() {
-    if (BACKEND_URL) {
-      return [
-        {
-          source: '/api/:path*',
-          destination: `${BACKEND_URL.replace(/\/$/, '')}/api/:path*`,
-        },
-      ];
-    }
-    if (process.env.NODE_ENV === 'development') {
-      return [
-        {
-          source: '/api/:path*',
-          destination: 'http://localhost:5000/api/:path*',
-        },
-      ];
-    }
-    return [];
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${BACKEND_URL.replace(/\/$/, '')}/api/:path*`,
+      },
+    ];
   },
   webpack: (config) => {
 
