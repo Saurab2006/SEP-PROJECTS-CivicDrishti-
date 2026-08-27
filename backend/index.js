@@ -49,6 +49,44 @@ async function protect(req, res, next) {
 const SECTOR_COLORS = { 'Roads & Transport': '#2563EB', Health: '#10B981', Education: '#8B5CF6', 'Drinking Water': '#06B6D4', Agriculture: '#F59E0B', Energy: '#EF4444', 'Urban Development': '#EC4899', 'Disaster Management': '#F97316' };
 function shortDept(n) { return n.replace(/^(Ministry|Department) of /, '').split(',')[0]; }
 
+const BASE_AUTHORITIES = [
+  'Department of Roads', 'Municipal Ward Office', 'Disaster Management Authority',
+  'Water Supply & Sewerage Corporation', 'Urban Development Dept', 'Electricity Authority',
+];
+
+async function ensureNotificationIndexes() {
+  try {
+    const indexes = await Notification.collection.indexes();
+    const current = indexes.find(i => i.name === 'idempotencyKey_1');
+    const hasPartial = Boolean(current?.partialFilterExpression);
+    if (current && !hasPartial) await Notification.collection.dropIndex('idempotencyKey_1');
+    await Notification.collection.updateMany({ idempotencyKey: '' }, { $unset: { idempotencyKey: '' } });
+    await Notification.collection.createIndex(
+      { idempotencyKey: 1 },
+      { unique: true, name: 'idempotencyKey_1', partialFilterExpression: { idempotencyKey: { $exists: true, $gt: '' } } }
+    );
+  } catch (err) {
+    console.warn('Notification index repair skipped:', err.message);
+  }
+}
+
+let initPromise = null;
+async function ensureDb() {
+  if (!initPromise) {
+    initPromise = (async () => {
+      await connect();
+      if (getMode() === 'mongo') {
+        await ensureNotificationIndexes();
+        const count = await Authority.countDocuments().catch(() => 0);
+        if (count === 0) {
+          await Authority.insertMany(BASE_AUTHORITIES.map(name => ({ name, department: name, district: '', source: 'seed' }))).catch(() => {});
+        }
+      }
+    })();
+  }
+  return initPromise;
+}
+
 const app = express();
 // gzip every response - the API returns large JSON payloads (report photos are
 // stored as base64), so compressing them cuts transfer time substantially and
@@ -56,6 +94,16 @@ const app = express();
 app.use(compression());
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '12mb' }));
+
+// Ensure DB is connected for serverless invocations
+app.use(async (req, res, next) => {
+  try {
+    await ensureDb();
+  } catch (err) {
+    console.warn('DB connect warning:', err.message);
+  }
+  next();
+});
 
 function useMongoRoutes(path, router) {
   app.use(path, (req, res, next) => {
@@ -567,36 +615,10 @@ app.patch('/api/notifications', protect, (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-async function ensureNotificationIndexes() {
-  try {
-    const indexes = await Notification.collection.indexes();
-    const current = indexes.find(i => i.name === 'idempotencyKey_1');
-    const hasPartial = Boolean(current?.partialFilterExpression);
-    if (current && !hasPartial) await Notification.collection.dropIndex('idempotencyKey_1');
-    await Notification.collection.updateMany({ idempotencyKey: '' }, { $unset: { idempotencyKey: '' } });
-    await Notification.collection.createIndex(
-      { idempotencyKey: 1 },
-      { unique: true, name: 'idempotencyKey_1', partialFilterExpression: { idempotencyKey: { $exists: true, $gt: '' } } }
-    );
-  } catch (err) {
-    console.warn('Notification index repair skipped:', err.message);
-  }
-}
-const BASE_AUTHORITIES = [
-  'Department of Roads', 'Municipal Ward Office', 'Disaster Management Authority',
-  'Water Supply & Sewerage Corporation', 'Urban Development Dept', 'Electricity Authority',
-];
-
-async function start() {
-  await connect();
-  if (getMode() === 'mongo') {
-    await ensureNotificationIndexes();
-    const count = await Authority.countDocuments();
-    if (count === 0) {
-      await Authority.insertMany(BASE_AUTHORITIES.map(name => ({ name, department: name, district: '', source: 'seed' })));
-    }
-  }
-  app.listen(PORT, () => console.log(`✓ Express API on :${PORT} (${getMode()} mode)`));
+if (require.main === module) {
+  ensureDb().then(() => {
+    app.listen(PORT, () => console.log(`✓ Express API on :${PORT} (${getMode()} mode)`));
+  });
 }
 
-start();
+module.exports = app;

@@ -1,8 +1,26 @@
 /** @type {import('next').NextConfig} */
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+
 module.exports = {
   reactStrictMode: true,
   async rewrites() {
-    return [{ source: '/api/:path*', destination: 'http://localhost:5000/api/:path*' }];
+    if (BACKEND_URL) {
+      return [
+        {
+          source: '/api/:path*',
+          destination: `${BACKEND_URL.replace(/\/$/, '')}/api/:path*`,
+        },
+      ];
+    }
+    if (process.env.NODE_ENV === 'development') {
+      return [
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:5000/api/:path*',
+        },
+      ];
+    }
+    return [];
   },
   webpack: (config) => {
 

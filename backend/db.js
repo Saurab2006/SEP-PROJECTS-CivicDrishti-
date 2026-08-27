@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const dns = require('dns');
-dns.setServers(['8.8.8.8', '8.8.4.4']);
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+} catch (_) {}
 
 let mode = 'memory'; // 'mongo' | 'memory'
 
