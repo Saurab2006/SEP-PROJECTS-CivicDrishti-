@@ -1,13 +1,23 @@
-// Civicदृष्टि — offline service worker.
-const CACHE_VERSION = 'govinsight-v3';
+// Civicदृष्टि — offline service worker v4
+// Bumped to v4 to force all clients to install the updated SW.
+const CACHE_VERSION = 'govinsight-v4';
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const API_CACHE = `${CACHE_VERSION}-api`;
 const QUEUE_DB = 'govinsight-offline-queue';
 const QUEUE_STORE = 'pending-requests';
 
+// The backend's absolute origin — API requests that bypass the Next.js proxy
+// and hit this domain directly are also intercepted and cached.
+const BACKEND_ORIGIN = 'https://sep-projects-civic-drishti-backend.vercel.app';
+
 const APP_SHELL_URLS = [
   '/',
   '/dashboard',
+  '/issues',
+  '/reports',
+  '/analytics',
+  '/budget',
+  '/authorities',
   '/manifest.json',
   '/icons/icon-192.svg',
   '/icons/icon-512.svg',
@@ -58,45 +68,56 @@ async function deleteQueuedRequest(id) {
 // ---- install / activate ----
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(APP_SHELL_CACHE).then((cache) => cache.addAll(APP_SHELL_URLS)).then(() => self.skipWaiting())
+    caches.open(APP_SHELL_CACHE)
+      .then((cache) => cache.addAll(APP_SHELL_URLS))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => !k.startsWith(CACHE_VERSION)).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) =>
+        Promise.all(keys.filter((k) => !k.startsWith(CACHE_VERSION)).map((k) => caches.delete(k)))
+      )
+      .then(() => self.clients.claim())
       .then(() => self.clients.matchAll({ type: 'window' }))
       .then((clients) => clients.forEach((client) => client.postMessage({ type: 'sw-updated' })))
   );
 });
 
+// ---- Helper: is this an API request we care about? ----
+function classifyRequest(request) {
+  const url = new URL(request.url);
+  const isSameOrigin = url.origin === self.location.origin;
+  const isBackendOrigin = url.origin === BACKEND_ORIGIN;
+  const isApi = url.pathname.startsWith('/api/');
+
+  // Identity/auth always goes to network (never serve stale roles).
+  const isIdentity = isApi && url.pathname.startsWith('/api/auth/me');
+  // Report mutations we queue when offline.
+  const isReportWrite = isApi && url.pathname.startsWith('/api/reports') && request.method !== 'GET';
+
+  return { isSameOrigin, isBackendOrigin, isApi, isIdentity, isReportWrite };
+}
+
 // ---- fetch handling ----
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
+  const { isSameOrigin, isBackendOrigin, isApi, isIdentity, isReportWrite } = classifyRequest(request);
 
-  // Only handle same-origin requests.
-  if (url.origin !== self.location.origin) return;
+  // Only handle same-origin OR known backend-origin requests.
+  if (!isSameOrigin && !isBackendOrigin) return;
 
-  const isApi = url.pathname.startsWith('/api/');
-  const isReportWrite = isApi && url.pathname.startsWith('/api/reports') && request.method !== 'GET';
-  // Identity/permissions must always come from the network. If a request
-  // hiccup ever made the fetch() below reject, falling back to a cached
-  // copy here would silently hand back a stale role (e.g. a user promoted
-  // to admin still looking like a citizen) with no visible error -- which
-  // is exactly the "works after hard refresh, not on normal load" bug
-  // this endpoint was hitting. So it bypasses the service worker entirely.
-  const isIdentity = isApi && url.pathname.startsWith('/api/auth/me');
+  // Never intercept identity requests — always hit network.
   if (isIdentity) return;
 
+  // --- Page navigation: network first, fall back to cached shell ---
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(APP_SHELL_CACHE).then((cache) => cache.put(request, copy));
+          caches.open(APP_SHELL_CACHE).then((cache) => cache.put(request, response.clone()));
           return response;
         })
         .catch(() => caches.match(request).then((cached) => cached || caches.match('/')))
@@ -104,7 +125,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Queue report writes made while offline; replay them later via sync.
+  // --- Report mutations: try network, queue on offline ---
   if (isReportWrite) {
     event.respondWith(
       fetch(request.clone()).catch(async () => {
@@ -120,7 +141,7 @@ self.addEventListener('fetch', (event) => {
           try { await self.registration.sync.register('sync-queued-reports'); } catch { /* ignore */ }
         }
         return new Response(
-          JSON.stringify({ queued: true, offline: true, message: 'Saved offline — will submit automatically once you\u2019re back online.' }),
+          JSON.stringify({ queued: true, offline: true, message: "Saved offline — will submit automatically once you're back online." }),
           { status: 202, headers: { 'Content-Type': 'application/json' } }
         );
       })
@@ -128,13 +149,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for other API GETs, fall back to cache when offline.
+  // --- API GET: network first, fall back to cache ---
   if (isApi && request.method === 'GET') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(API_CACHE).then((cache) => cache.put(request, copy));
+          if (response.ok) {
+            caches.open(API_CACHE).then((cache) => cache.put(request, response.clone()));
+          }
           return response;
         })
         .catch(() => caches.match(request))
@@ -142,17 +164,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Next.js build output (JS/CSS chunks) changes on every deploy but often
-  // keeps the same URL in dev, and can be re-requested before a hard reload
-  // clears any stale copy — so these must always be checked against the
-  // network first. Falls back to cache only when truly offline.
-  const isBuildAsset = url.pathname.startsWith('/_next/');
-  if (isBuildAsset && request.method === 'GET') {
+  // --- Next.js build assets: network first, cache fallback ---
+  if (new URL(request.url).pathname.startsWith('/_next/') && request.method === 'GET') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(APP_SHELL_CACHE).then((cache) => cache.put(request, copy));
+          caches.open(APP_SHELL_CACHE).then((cache) => cache.put(request, response.clone()));
           return response;
         })
         .catch(() => caches.match(request))
@@ -160,16 +177,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for everything else (icons, manifest, and other rarely
-  // changing static assets).
+  // --- Static assets: cache first ---
   if (request.method === 'GET') {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;
         return fetch(request)
           .then((response) => {
-            const copy = response.clone();
-            caches.open(APP_SHELL_CACHE).then((cache) => cache.put(request, copy));
+            caches.open(APP_SHELL_CACHE).then((cache) => cache.put(request, response.clone()));
             return response;
           })
           .catch(() => caches.match('/dashboard'));
@@ -178,17 +193,14 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// ---- background sync: replay queued report submissions ----
+// ---- Background sync: replay queued report submissions ----
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-queued-reports') {
     event.waitUntil(replayQueuedRequests());
   }
 });
 
-// Fallback for browsers without Background Sync (e.g. iOS Safari): the app
-// can call navigator.serviceWorker.controller.postMessage({type:'flush-queue'})
-// on regaining connectivity (see LanguageContext-adjacent online listener in
-// the app shell) to trigger the same replay logic manually.
+// Fallback for browsers without Background Sync (e.g. iOS Safari).
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'flush-queue') {
     event.waitUntil(replayQueuedRequests());
@@ -207,23 +219,21 @@ async function replayQueuedRequests() {
       if (response.ok) {
         await deleteQueuedRequest(entry.id);
         const clients = await self.clients.matchAll();
-        clients.forEach((client) => client.postMessage({ type: 'queued-report-synced', id: entry.id }));
+        clients.forEach((client) =>
+          client.postMessage({ type: 'queued-report-synced', id: entry.id })
+        );
       }
     } catch {
-      // Still offline — leave it queued, try again on the next sync event.
+      // Still offline — leave it queued.
       break;
     }
   }
 }
 
-// ---- push notifications ----
-// Fires for report status updates (verified / assigned / resolved) sent
-// from the server via web-push - see backend/utils/push.js. Delivered even
-// when Civicदृष्टि isn't open, which is the whole point of a push
-// notification versus an in-app one.
+// ---- Push notifications ----
 self.addEventListener('push', (event) => {
   let data = { title: 'Civicदृष्टि', body: 'You have an update.', url: '/dashboard' };
-  try { if (event.data) data = { ...data, ...event.data.json() }; } catch { /* non-JSON payload, use defaults */ }
+  try { if (event.data) data = { ...data, ...event.data.json() }; } catch { /* non-JSON payload */ }
 
   event.waitUntil(
     self.registration.showNotification(data.title, {
@@ -236,11 +246,9 @@ self.addEventListener('push', (event) => {
   );
 });
 
-
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || '/dashboard';
-
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
