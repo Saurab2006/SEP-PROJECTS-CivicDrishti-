@@ -7,12 +7,15 @@ import styles from '@/styles/civicAuth.module.css';
 import { Eye, EyeOff, Loader2, MapPinned } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { NEPAL_PROVINCES, getDistrictsForProvince } from '@/lib/nepalLocations';
 
 export default function SignupPage() {
   const { signup } = useAuth();
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm({ defaultValues: { name: '', email: '', phone: '', password: '', confirmPassword: '', role: 'researcher', province: '', district: '', municipality: '', ward: '' } });
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm({ defaultValues: { name: '', email: '', phone: '', password: '', confirmPassword: '', role: 'researcher', province: '', district: '', municipality: '', ward: '' } });
+  const selectedProvince = watch('province');
+  const districtOptions = getDistrictsForProvince(selectedProvince);
 
   const onSubmit = async (values) => {
     setError('');
@@ -45,7 +48,16 @@ export default function SignupPage() {
           {errors.phone && <span className={styles.errMsg}>{errors.phone.message}</span>}
         </div>
         <input type="hidden" {...register('role')} />
-        <div className={styles.jurisdictionBox}><p className={styles.jurisdictionTitle}><MapPinned className="h-4 w-4" style={{ color: 'var(--sindoor)' }} />Jurisdiction</p><div className={styles.rowFour}><input className={styles.input} placeholder="Province" {...register('province')} /><input className={styles.input} placeholder="District" {...register('district')} /><input className={styles.input} placeholder="Municipality" {...register('municipality')} /><input className={styles.input} placeholder="Ward" {...register('ward')} /></div></div>
+        <div className={styles.jurisdictionBox}><p className={styles.jurisdictionTitle}><MapPinned className="h-4 w-4" style={{ color: 'var(--sindoor)' }} />Jurisdiction</p><div className={styles.rowFour}>
+          <select className={`${styles.input} ${styles.selectInput}`} {...register('province', { onChange: () => setValue('district', '') })}>
+            <option value="">Province</option>
+            {NEPAL_PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <select className={`${styles.input} ${styles.selectInput}`} disabled={!selectedProvince} {...register('district')}>
+            <option value="">{selectedProvince ? 'District' : 'Select province first'}</option>
+            {districtOptions.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <input className={styles.input} placeholder="Municipality" {...register('municipality')} /><input className={styles.input} placeholder="Ward" {...register('ward')} /></div></div>
         <div className={styles.rowTwo}>
           <div><label className={styles.label}>Password <span className={styles.labelNp}>पासवर्ड</span></label><div className={styles.inputWrap}><input type={showPw ? 'text' : 'password'} className={`${styles.input} ${errors.password ? styles.inputError : ''}`} style={{ paddingRight: 40 }} placeholder="Min 6 characters" {...register('password', { required: 'Required', minLength: { value: 6, message: 'Min 6 characters' } })} /><button type="button" onClick={() => setShowPw(v => !v)} className={styles.inputIconBtn}>{showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div>{errors.password && <span className={styles.errMsg}>{errors.password.message}</span>}</div>
           <div><label className={styles.label}>Confirm password <span className={styles.labelNp}>पासवर्ड पुष्टि</span></label><input type="password" className={`${styles.input} ${errors.confirmPassword ? styles.inputError : ''}`} placeholder="Re-enter password" {...register('confirmPassword', { validate: v => v === watch('password') || "Passwords don't match" })} />{errors.confirmPassword && <span className={styles.errMsg}>{errors.confirmPassword.message}</span>}</div>

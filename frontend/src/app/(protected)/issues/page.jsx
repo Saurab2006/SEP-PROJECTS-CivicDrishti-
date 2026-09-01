@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import MapPicker from '@/components/MapPicker';
 import IssuesMap from '@/components/IssuesMap';
 import Pagination from '@/components/Pagination';
+import { NEPAL_PROVINCES, getDistrictsForProvince } from '@/lib/nepalLocations';
 
 const STATUS_STYLE = {
   pending: 'bg-amber-50 text-amber-700 border-amber-100',
@@ -29,7 +30,7 @@ const SEVERITY_STYLE = {
   high: 'bg-orange-100 text-orange-700', critical: 'bg-red-100 text-red-700',
 };
 const STATUS_FILTERS = ['all', 'pending', 'verified', 'assigned', 'in-progress', 'completed', 'closed', 'rejected', 'duplicate'];
-const PROVINCES = ['Koshi', 'Madhesh', 'Bagmati', 'Gandaki', 'Lumbini', 'Karnali', 'Sudurpashchim'];
+const PROVINCES = NEPAL_PROVINCES;
 function isToday(dateLike) {
   if (!dateLike) return false;
   const d = new Date(dateLike);
@@ -298,7 +299,8 @@ function ReportForm({ meta, onClose, onCreated }) {
   const [coords, setCoords] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [photoError, setPhotoError] = useState('');
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k, v) => setForm(f => (k === 'province' ? { ...f, province: v, district: '' } : { ...f, [k]: v }));
+  const districtOptions = useMemo(() => getDistrictsForProvince(form.province), [form.province]);
 
   const handlePhotoChange = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -387,12 +389,17 @@ function ReportForm({ meta, onClose, onCreated }) {
             <legend className="px-1 text-xs font-semibold text-gray-500">Administrative area</legend>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Province">
-                <select value={form.province} onChange={e => set('province', e.target.value)} className="input">
+                <select value={form.province} onChange={e => set('province', e.target.value)} className="input selectInput">
                   <option value="">Select province</option>
                   {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </Field>
-              <Field label="District"><input value={form.district} onChange={e => set('district', e.target.value)} className="input" /></Field>
+              <Field label="District">
+                <select value={form.district} onChange={e => set('district', e.target.value)} disabled={!form.province} className="input selectInput selectInputDisabled">
+                  <option value="">{form.province ? 'Select district' : 'Select province first'}</option>
+                  {districtOptions.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </Field>
               <Field label="Municipality"><input value={form.municipality} onChange={e => set('municipality', e.target.value)} className="input" /></Field>
               <Field label="Ward"><input type="number" min="1" value={form.ward} onChange={e => set('ward', e.target.value)} className="input" /></Field>
             </div>
@@ -446,7 +453,16 @@ function ReportForm({ meta, onClose, onCreated }) {
           <button type="button" onClick={onClose} className="mt-2 h-9 w-full rounded-xl text-xs font-semibold text-gray-500 hover:bg-gray-50">Cancel</button>
         </div>
       </form>
-      <style jsx global>{`.input{width:100%;padding:.5rem .75rem;border-radius:.75rem;border:1px solid #e5e7eb;font-size:.813rem;outline:none}.input:focus{border-color:#2563EB}`}</style>
+      <style jsx global>{`
+        .input{width:100%;padding:.5rem .75rem;border-radius:.75rem;border:1px solid #e5e7eb;font-size:.813rem;outline:none;box-sizing:border-box;height:2.375rem;line-height:1.25rem}
+        .input:focus{border-color:#2563EB}
+        select.selectInput{
+          appearance:none;-webkit-appearance:none;-moz-appearance:none;
+          background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+          background-repeat:no-repeat;background-position:right .6rem center;background-size:1rem;padding-right:2rem;
+        }
+        select.selectInputDisabled:disabled{opacity:.6;cursor:not-allowed;background-color:#f9fafb}
+      `}</style>
     </div>
   );
 }
