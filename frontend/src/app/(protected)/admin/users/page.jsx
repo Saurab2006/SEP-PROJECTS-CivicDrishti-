@@ -373,6 +373,16 @@ function StatusPill({ status }) {
 }
 
 function UserAvatar({ u }) {
+  if (u.selfiePhoto) {
+    return (
+      <img
+        src={u.selfiePhoto}
+        alt=""
+        className="h-9 w-9 shrink-0 rounded-full object-cover"
+      />
+    );
+  }
+
   return (
     <div
       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"

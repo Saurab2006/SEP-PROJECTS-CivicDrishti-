@@ -11,13 +11,12 @@ const router = express.Router();
 const HIDDEN_DEMO_EMAILS = ['researcher@govinsight.np', 'analyst@govinsight.np', 'admin@govinsight.np'];
 const ROLE_VALUES = ['admin', 'researcher', 'ward_rep', 'municipality_head'];
 
-// GET /api/users - admin only
 router.get('/', protect, requireRole('admin'), async (req, res) => {
   try {
     const users = await User.find({ email: { $nin: HIDDEN_DEMO_EMAILS } }).select('-password').sort({ createdAt: -1 });
     const enriched = await Promise.all(users.map(async u => {
       const docCount = await Document.countDocuments({ user: u._id });
-      return { ...u.toPublic(), documentCount: docCount };
+      return { ...u.toAdminList(), documentCount: docCount };
     }));
     res.json({ users: enriched });
   } catch (err) {
@@ -25,7 +24,7 @@ router.get('/', protect, requireRole('admin'), async (req, res) => {
   }
 });
 
-// PATCH /api/users/:id - admin only
+
 router.patch('/:id', protect, requireRole('admin'), async (req, res) => {
   try {
     const { role, status, verificationStatus, wardRepresentativeStatus } = req.body;
@@ -70,12 +69,15 @@ router.patch('/:id', protect, requireRole('admin'), async (req, res) => {
     if (status && status !== before.status && !wardRepresentativeStatus) {
       logAudit(req, { action: status === 'suspended' ? 'SUSPEND_USER' : 'REACTIVATE_USER', targetType: 'User', targetId: before._id, targetLabel, previousValue: { status: before.status }, newValue: { status }, ...locFields });
     }
+
+    const updated = await User.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
+    res.json({ user: updated.toPublic() });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE /api/users/:id - admin only
+
 router.delete('/:id', protect, requireRole('admin'), async (req, res) => {
   try {
     if (String(req.params.id) === String(req.user._id)) {
@@ -96,7 +98,7 @@ router.delete('/:id', protect, requireRole('admin'), async (req, res) => {
   }
 });
 
-// GET /api/users/:id/citizenship-doc - admin/municipality head only.
+
 router.get('/:id/citizenship-doc', protect, requireRole('admin', 'municipality_head'), async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('citizenshipDoc citizenshipDocName name verificationStatus');
@@ -109,5 +111,3 @@ router.get('/:id/citizenship-doc', protect, requireRole('admin', 'municipality_h
 });
 
 module.exports = router;
-
-

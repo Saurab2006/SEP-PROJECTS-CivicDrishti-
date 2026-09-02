@@ -2,11 +2,10 @@
 const bcrypt = require('bcryptjs');
 const { randomAvatarHue } = require('../utils/avatarHue');
 
-// Ward must be a positive whole number (no negatives, no zero, no decimals).
-// Stored as String, so we validate the string pattern rather than a numeric min.
+
 const wardValidator = {
   validator: function (v) {
-    if (v === '' || v === null || v === undefined) return true; // let `required` (where applicable) handle empty
+    if (v === '' || v === null || v === undefined) return true; 
     return /^[1-9]\d*$/.test(v);
   },
   message: 'Ward must be a positive whole number',
@@ -27,9 +26,7 @@ const userSchema = new mongoose.Schema({
   resetPasswordHash: { type: String, default: '' },
   resetPasswordExpires: { type: Date, default: null },
 
-  // Phone number, normalized to digits only (e.g. "9779812345678").
-  // Used to identify citizens reporting issues over SMS, since a text
-  // message can't carry a JWT ” the phone number is the identity.
+ 
   phone:        { type: String, default: '', trim: true },
 
   civicLocation: {
@@ -41,19 +38,19 @@ const userSchema = new mongoose.Schema({
     address: { type: String, default: '', trim: true },
   },
 
-  // When the user last changed their ward/address via Settings. Used to enforce a cooldown between changes.
+
   lastAddressChangeAt: { type: Date, default: null },
 
   // Identity verification (required at signup for researcher/citizen accounts).
   // Lets admins/analysts trace a report back to a verified identity if it's
   // ever flagged as fake.
-  citizenshipDoc:     { type: String, default: '' }, // base64 data URL of the uploaded ID image/PDF
-  citizenshipNumber:  { type: String, default: '' }, // used to stop one person creating multiple accounts
-  selfiePhoto:        { type: String, default: '' }, // base64 selfie image for face match
+  citizenshipDoc:     { type: String, default: '' }, 
+  citizenshipNumber:  { type: String, default: '' }, 
+  selfiePhoto:        { type: String, default: '' }, 
   selfiePhotoName:    { type: String, default: '' },
-  faceMatchScore: { type: Number, default: null }, // similarity score, 0 to 1 
+  faceMatchScore: { type: Number, default: null },  
   faceVerifiedAt: { type: Date, default: null },
-  faceDescriptor:     { type: [Number], default: undefined }, // face fingerprint, ~128 numbers, used to detect duplicate signups
+  faceDescriptor:     { type: [Number], default: undefined }, 
   citizenshipDocName: { type: String, default: '' },
   verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected', 'n/a'], default: 'n/a' },
   municipalityHeadProfile: {
@@ -118,13 +115,12 @@ userSchema.methods.toPublic = function () {
     createdAt: this.createdAt,
   };
 };
-// Same as toPublic(), plus the verification selfie itself. Only ever call
-// this for a user viewing their OWN account (login, signup, /me, settings
-// actions) - never for admin-facing lists of other users (routes/users.js,
-// routes/wards.js, routes/municipalityHeads.js), which must keep using
-// plain toPublic() so a citizen's verification photo never reaches anyone
-// but the citizen it belongs to.
+
 userSchema.methods.toPublicSelf = function () {
+  return { ...this.toPublic(), selfiePhoto: this.selfiePhoto || '' };
+};
+
+userSchema.methods.toAdminList = function () {
   return { ...this.toPublic(), selfiePhoto: this.selfiePhoto || '' };
 };
 module.exports = mongoose.model('User', userSchema);

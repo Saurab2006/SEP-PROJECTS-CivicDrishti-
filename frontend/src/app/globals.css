@@ -195,38 +195,123 @@ body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: anti
   border-color: var(--gov-border);
   box-shadow: none;
 }
-.dark .gov-app main input,
-.dark .gov-app main textarea,
-.dark .gov-app main select {
+.dark .gov-app input,
+.dark .gov-app textarea,
+.dark .gov-app select {
   background: #0f172a !important;
   color: var(--gov-text) !important;
 }
-.dark .gov-app main .bg-white {
+.dark .gov-app .bg-white {
   background-color: var(--gov-surface) !important;
 }
-.dark .gov-app main .bg-\[\#fbfcfe\],
-.dark .gov-app main .bg-\[\#f8fafc\] {
+.dark .gov-app .bg-\[\#fbfcfe\],
+.dark .gov-app .bg-\[\#f8fafc\] {
   background-color: var(--gov-surface-soft) !important;
 }
 
-.dark .gov-app main .text-\[\#102a2b\],
-.dark .gov-app main .text-\[\#17212b\] {
+.dark .gov-app .text-\[\#102a2b\],
+.dark .gov-app .text-\[\#17212b\] {
   color: var(--gov-text) !important;
 }
-.dark .gov-app main .text-\[\#65706c\],
-.dark .gov-app main .text-\[\#4e6174\] {
+.dark .gov-app .text-\[\#65706c\],
+.dark .gov-app .text-\[\#4e6174\] {
   color: var(--gov-muted) !important;
 }
-.dark .gov-app main .text-\[\#8c8272\] {
+.dark .gov-app .text-\[\#8c8272\] {
   color: var(--gov-subtle) !important;
 }
-.dark .gov-app main .border-\[\#ded6c8\],
-.dark .gov-app main .border-\[\#aebdcb\] {
+.dark .gov-app .border-\[\#ded6c8\],
+.dark .gov-app .border-\[\#aebdcb\] {
   border-color: var(--gov-border) !important;
 }
-.dark .gov-app main .bg-\[\#fffaf2\] {
+.dark .gov-app .bg-\[\#fffaf2\] {
   background-color: var(--gov-surface-soft) !important;
 }
+
+
+.dark .gov-app .bg-gray-50,
+.dark .gov-app .bg-gray-100 { background-color: var(--gov-surface-soft) !important; }
+.dark .gov-app .bg-gray-800,
+.dark .gov-app .bg-gray-900 { background-color: #1c2536 !important; }
+.dark .gov-app .text-gray-200,
+.dark .gov-app .text-gray-300 { color: var(--gov-subtle) !important; }
+.dark .gov-app .text-gray-400 { color: #8b96a8 !important; }
+.dark .gov-app .text-gray-500,
+.dark .gov-app .text-gray-600,
+.dark .gov-app .text-gray-700 { color: var(--gov-muted) !important; }
+.dark .gov-app .text-gray-800,
+.dark .gov-app .text-gray-900 { color: var(--gov-text) !important; }
+.dark .gov-app .border-gray-50,
+.dark .gov-app .border-gray-100,
+.dark .gov-app .border-gray-200,
+.dark .gov-app .border-gray-300 { border-color: var(--gov-border) !important; }
+.dark .gov-app .border-gray-800 { border-color: #2a3548 !important; }
+.dark .gov-app .divide-gray-50 > :not([hidden]) ~ :not([hidden]),
+.dark .gov-app .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--gov-border) !important; }
+.dark .gov-app .shimmer { background: linear-gradient(90deg, #1c2536 25%, #253044 37%, #1c2536 63%); }
+
+
+.dark .gov-app .bg-red-50 { background-color: #2a1416 !important; }
+.dark .gov-app .text-red-600,
+.dark .gov-app .text-red-700,
+.dark .gov-app .text-red-900 { color: #f87171 !important; }
+.dark .gov-app .border-red-100,
+.dark .gov-app .border-red-200 { border-color: #4c1d1d !important; }
+
+.dark .gov-app .bg-orange-50 { background-color: #2a1c10 !important; }
+.dark .gov-app .text-orange-700 { color: #fb923c !important; }
+
+.dark .gov-app .bg-amber-50 { background-color: #2a2210 !important; }
+.dark .gov-app .text-amber-600,
+.dark .gov-app .text-amber-700 { color: #fbbf24 !important; }
+.dark .gov-app .border-amber-100,
+.dark .gov-app .border-amber-400 { border-color: #4a3b14 !important; }
+
+.dark .gov-app .bg-emerald-50 { background-color: #10261f !important; }
+.dark .gov-app .text-emerald-600,
+.dark .gov-app .text-emerald-700 { color: #34d399 !important; }
+.dark .gov-app .border-emerald-100 { border-color: #1e3f30 !important; }
+
+.dark .gov-app .bg-teal-50 { background-color: #0f2620 !important; }
+.dark .gov-app .text-teal-700 { color: #2dd4bf !important; }
+.dark .gov-app .border-teal-100 { border-color: #1c3f38 !important; }
+
+.dark .gov-app .bg-cyan-50 { background-color: #0f2530 !important; }
+.dark .gov-app .text-cyan-700 { color: #22d3ee !important; }
+.dark .gov-app .border-cyan-100 { border-color: #1c3a45 !important; }
+
+.dark .gov-app .bg-blue-50 { background-color: #101f33 !important; }
+.dark .gov-app .text-blue-400,
+.dark .gov-app .text-blue-600,
+.dark .gov-app .text-blue-700 { color: #60a5fa !important; }
+.dark .gov-app .border-blue-100 { border-color: #1e3350 !important; }
+
+.dark .gov-app .bg-violet-50 { background-color: #1e1733 !important; }
+.dark .gov-app .text-violet-600,
+.dark .gov-app .text-violet-700 { color: #a78bfa !important; }
+.dark .gov-app .border-violet-100 { border-color: #332a52 !important; }
+
+.dark .gov-app .bg-brand-50 { background-color: #101f33 !important; }
+.dark .gov-app .text-brand-500,
+.dark .gov-app .text-brand-600,
+.dark .gov-app .text-brand-700 { color: #90b2fc !important; }
+.dark .gov-app .bg-amber-100 { background-color: #3a2f14 !important; }
+.dark .gov-app .bg-orange-100 { background-color: #3a2614 !important; }
+
+
+.dark .gov-app .bg-white\/95,
+.dark .gov-app .bg-white\/70,
+.dark .gov-app .bg-white\/60,
+.dark .gov-app .bg-white\/55,
+.dark .gov-app .bg-white\/45 { background-color: var(--gov-surface) !important; }
+.dark .gov-app .bg-white\/35,
+.dark .gov-app .bg-white\/10,
+.dark .gov-app .bg-white\/5 { background-color: rgba(255, 255, 255, 0.06) !important; }
+
+
+.dark .gov-app .bg-\[\#fff7e8\] { background-color: var(--gov-surface) !important; }
+.dark .gov-app .border-\[\#eadfce\] { border-color: var(--gov-border) !important; }
+
 @media (min-width: 1024px) {
   .gov-app > .flex > aside[class*="fixed"][class*="w-[276px]"] ~ div {
     padding-left: 276px;
